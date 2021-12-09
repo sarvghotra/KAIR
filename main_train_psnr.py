@@ -54,7 +54,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     if opt['dist']:
         init_dist('pytorch')
     opt['rank'], opt['world_size'] = get_dist_info()
-    
+
     if opt['rank'] == 0:
         util.mkdirs((path for key, path in opt['path'].items() if 'pretrained' not in key))
 
@@ -115,6 +115,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # 1) create_dataset
     # 2) creat_dataloader for train and test
     # ----------------------------------------
+    test_sets_info = []
     for phase, dataset_opt in opt['datasets'].items():
         if phase == 'train':
             train_set = define_Dataset(dataset_opt)
@@ -143,6 +144,19 @@ def main(json_path='options/train_msrresnet_psnr.json'):
             test_loader = DataLoader(test_set, batch_size=1,
                                      shuffle=False, num_workers=1,
                                      drop_last=False, pin_memory=True)
+            set_info = {}
+            set_info['name'] = 'test'
+            set_info['loader'] = test_loader
+            test_sets_info.append(set_info)
+        elif phase == 'save_test_out':
+            save_test_set = define_Dataset(dataset_opt)
+            save_test_loader = DataLoader(save_test_set, batch_size=1,
+                                     shuffle=False, num_workers=1,
+                                     drop_last=False, pin_memory=True)
+            set_info = {}
+            set_info['name'] = 'save_test_out'
+            set_info['loader'] = save_test_loader
+            test_sets_info.append(set_info)
         else:
             raise NotImplementedError("Phase [%s] is not recognized." % phase)
 
@@ -206,43 +220,46 @@ def main(json_path='options/train_msrresnet_psnr.json'):
             # -------------------------------
             if current_step % opt['train']['checkpoint_test'] == 0 and opt['rank'] == 0:
 
-                avg_psnr = 0.0
-                idx = 0
+                for t in test_sets_info:
+                    test_loader = t['loader']
+                    test_name = t['name']
+                    avg_psnr = 0.0
+                    idx = 0
 
-                for test_data in test_loader:
-                    idx += 1
-                    image_name_ext = os.path.basename(test_data['L_path'][0])
-                    img_name, ext = os.path.splitext(image_name_ext)
+                    for test_data in test_loader:
+                        idx += 1
+                        image_name_ext = os.path.basename(test_data['L_path'][0])
+                        img_name, ext = os.path.splitext(image_name_ext)
 
-                    img_dir = os.path.join(opt['path']['images'], img_name)
-                    util.mkdir(img_dir)
+                        model.feed_data(test_data)
+                        model.test()
 
-                    model.feed_data(test_data)
-                    model.test()
+                        visuals = model.current_visuals()
+                        E_img = util.tensor2uint(visuals['E'])
+                        H_img = util.tensor2uint(visuals['H'])
 
-                    visuals = model.current_visuals()
-                    E_img = util.tensor2uint(visuals['E'])
-                    H_img = util.tensor2uint(visuals['H'])
+                        # -----------------------
+                        # save estimated image E
+                        # -----------------------
+                        if test_name == "save_test_out":
+                            img_dir = os.path.join(opt['path']['images'], img_name)
+                            util.mkdir(img_dir)
+                            save_img_path = os.path.join(img_dir, '{:s}_{:d}.png'.format(img_name, current_step))
+                            util.imsave(E_img, save_img_path)
 
-                    # -----------------------
-                    # save estimated image E
-                    # -----------------------
-                    save_img_path = os.path.join(img_dir, '{:s}_{:d}.png'.format(img_name, current_step))
-                    util.imsave(E_img, save_img_path)
+                        # -----------------------
+                        # calculate PSNR
+                        # -----------------------
+                        current_psnr = util.calculate_psnr(E_img, H_img, border=border)
 
-                    # -----------------------
-                    # calculate PSNR
-                    # -----------------------
-                    current_psnr = util.calculate_psnr(E_img, H_img, border=border)
+                        logger.info('{:->4d}--> {:>10s} | {:<4.2f}dB'.format(idx, image_name_ext, current_psnr))
 
-                    logger.info('{:->4d}--> {:>10s} | {:<4.2f}dB'.format(idx, image_name_ext, current_psnr))
+                        avg_psnr += current_psnr
 
-                    avg_psnr += current_psnr
+                    avg_psnr = avg_psnr / idx
 
-                avg_psnr = avg_psnr / idx
-
-                # testing log
-                logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+                    # testing log
+                    logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
 
 if __name__ == '__main__':
     main()
