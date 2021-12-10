@@ -249,6 +249,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                             util.mkdir(img_dir)
                             save_img_path = os.path.join(img_dir, '{:s}_{:d}.png'.format(img_name, current_step))
                             util.imsave(E_img, save_img_path)
+                            continue
 
                         # -----------------------
                         # calculate PSNR
@@ -261,8 +262,9 @@ def main(json_path='options/train_msrresnet_psnr.json'):
 
                     avg_psnr = avg_psnr / idx
 
-                    # testing log
-                    logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+                    if not test_name == "save_test_out":
+                        # testing log
+                        logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
 
 if __name__ == '__main__':
     main()
