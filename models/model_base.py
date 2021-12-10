@@ -168,7 +168,14 @@ class ModelBase():
             state_dict = network.state_dict()
             for ((key_old, param_old),(key, param)) in zip(state_dict_old.items(), state_dict.items()):
                 state_dict[key] = param_old
-            network.load_state_dict(state_dict, strict=True)
+            try:
+                network.load_state_dict(state_dict, strict=True)
+            except RuntimeError as e:
+                if "size mismatch for conv_last.weight" in str(e):
+                    state_dict.pop("conv_last.weight")
+                    state_dict.pop("conv_last.bias")
+                network.load_state_dict(state_dict, strict=False)
+
             del state_dict_old, state_dict
 
     # ----------------------------------------
@@ -184,6 +191,12 @@ class ModelBase():
     # ----------------------------------------
     def load_optimizer(self, load_path, optimizer):
         optimizer.load_state_dict(torch.load(load_path, map_location=lambda storage, loc: storage.cuda(torch.cuda.current_device())))
+
+    # ----------------------------------------
+    # load the state_dict of the scheduler
+    # ----------------------------------------
+    def load_scheduler(self, load_path, scheduler):
+        scheduler.load_state_dict(torch.load(load_path, map_location=lambda storage, loc: storage.cuda(torch.cuda.current_device())))
 
     def update_E(self, decay=0.999):
         netG = self.get_bare_model(self.netG)

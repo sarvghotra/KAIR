@@ -121,6 +121,8 @@ def parse(opt_path, is_train=True):
     # ----------------------------------------
     if 'G_optimizer_reuse' not in opt['train']:
         opt['train']['G_optimizer_reuse'] = False
+    if 'G_scheduler_reuse' not in opt['train']:
+        opt['train']['G_scheduler_reuse'] = False
     if 'netD' in opt and 'D_optimizer_reuse' not in opt['train']:
         opt['train']['D_optimizer_reuse'] = False
 
