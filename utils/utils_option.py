@@ -53,21 +53,21 @@ def parse(opt_path, is_train=True):
     # datasets
     # ----------------------------------------
     for phase, dataset in opt['datasets'].items():
-        phase = phase.split('_')[0]
+        #phase = phase.split('_')[0]
         dataset['phase'] = phase
         dataset['scale'] = opt['scale']  # broadcast
         dataset['n_channels'] = opt['n_channels']  # broadcast
-        if 'dataroot_H' in dataset and dataset['dataroot_H'] is not None:
-            dataset['dataroot_H'] = os.path.expanduser(dataset['dataroot_H'])
-        if 'dataroot_L' in dataset and dataset['dataroot_L'] is not None:
-            dataset['dataroot_L'] = os.path.expanduser(dataset['dataroot_L'])
+        # if 'dataroot_H' in dataset and dataset['dataroot_H'] is not None:
+        #     dataset['dataroot_H'] = os.path.expanduser(dataset['dataroot_H'])
+        # if 'dataroot_L' in dataset and dataset['dataroot_L'] is not None:
+        #     dataset['dataroot_L'] = os.path.expanduser(dataset['dataroot_L'])
 
     # ----------------------------------------
     # path
     # ----------------------------------------
-    for key, path in opt['path'].items():
-        if path and key in opt['path']:
-            opt['path'][key] = os.path.expanduser(path)
+    # for key, path in opt['path'].items():
+    #     if path and key in opt['path']:
+    #         opt['path'][key] = os.path.expanduser(path)
 
     path_task = os.path.join(opt['path']['root'], opt['task'])
     opt['path']['task'] = path_task
@@ -161,7 +161,7 @@ def parse(opt_path, is_train=True):
 
 def find_last_checkpoint(save_dir, net_type='G'):
     """
-    Args: 
+    Args:
         save_dir: model folder
         net_type: 'G' or 'D' or 'optimizerG' or 'optimizerD'
 
