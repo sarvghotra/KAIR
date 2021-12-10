@@ -58,6 +58,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     if opt['rank'] == 0:
         util.mkdirs((path for key, path in opt['path'].items() if 'pretrained' not in key))
 
+    current_step = 0
     # ----------------------------------------
     # update opt
     # ----------------------------------------
@@ -68,7 +69,9 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     opt['path']['pretrained_netE'] = init_path_E
     init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerG')
     opt['path']['pretrained_optimizerG'] = init_path_optimizerG
-    current_step = max(init_iter_G, init_iter_E, init_iter_optimizerG)
+    init_iter_schedulerG, init_path_schedulerG = option.find_last_checkpoint(opt['path']['models'], net_type='schedulerG')
+    opt['path']['pretrained_schedulerG'] = init_path_schedulerG
+    current_step = max(init_iter_G, init_iter_E, init_iter_optimizerG, init_iter_schedulerG)
 
     border = opt['scale']
     # --<--<--<--<--<--<--<--<--<--<--<--<--<-
