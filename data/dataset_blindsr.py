@@ -23,7 +23,12 @@ class DatasetBlindSR(data.Dataset):
         self.lq_patchsize = self.opt['lq_patchsize'] if self.opt['lq_patchsize'] else 64
         self.patch_size = self.opt['H_size'] if self.opt['H_size'] else self.lq_patchsize*self.sf
 
-        self.paths_H = util.get_image_paths(opt['dataroot_H'])
+        train_img_files = util.read_dirs(opt['dataroot_H'], opt['cache_dir'])
+        # merging all lists of filepaths into one list
+        self.paths_H = []
+        for d in train_img_files:
+            self.paths_H.extend(d)
+
         print(len(self.paths_H))
 
 #        for n, v in enumerate(self.paths_H):
