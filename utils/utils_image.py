@@ -9,6 +9,8 @@ from datetime import datetime
 # import torchvision.transforms as transforms
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+import pathlib
+from subprocess import check_output
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
 
@@ -89,7 +91,54 @@ def _get_paths_from_images(path):
 
 '''
 # --------------------------------------------
-# split large images into small images 
+# get file paths; optimized for quick turnaround
+# --------------------------------------------
+'''
+
+def list_files_in_dir(dir):
+    list_dir = str(pathlib.Path(__file__).parent.absolute()) + '/listdir'
+    file_names = check_output([list_dir, dir])
+    fnames = file_names.decode().strip().split('\n')
+    return fnames
+
+def get_file_paths(root, cache_dir):
+    # if cached
+    cache_filename = "_".join(root.split('/')) + '.txt'
+    cache_file_path = os.path.join(cache_dir, cache_filename)
+    if os.path.isfile(cache_file_path):
+        with open(cache_file_path, 'r', encoding='utf-8') as fi:
+            filenames = fi.readlines()
+        filenames = [x.strip() for x in filenames]
+    else:
+        filenames = list_files_in_dir(root)
+        try:
+            with open(cache_file_path, 'w', encoding='utf-8') as fi:
+                fi.write('\n'.join(filenames))
+        except Exception as e:
+            # clean by deleting the file
+            os.remove(cache_file_path)
+            print(e)
+            raise e
+
+    file_paths = []
+    for fn in filenames:
+        file_path = os.path.join(root, fn)
+        file_paths.append(file_path)
+    return file_paths
+
+
+def read_dirs(paths, cache_dir):
+    img_filenames = []
+    for path in paths:
+        file_paths = get_file_paths(path, cache_dir)
+        img_filenames.append(file_paths)
+
+    return img_filenames
+
+
+'''
+# --------------------------------------------
+# split large images into small images
 # --------------------------------------------
 '''
 
@@ -127,7 +176,7 @@ def imssave(imgs, img_path):
 
 def split_imageset(original_dataroot, taget_dataroot, n_channels=3, p_size=512, p_overlap=96, p_max=800):
     """
-    split the large images from original_dataroot into small overlapped images with size (p_size)x(p_size), 
+    split the large images from original_dataroot into small overlapped images with size (p_size)x(p_size),
     and save them into taget_dataroot; only the images with larger size than (p_max)x(p_max)
     will be splitted.
 
@@ -1004,13 +1053,6 @@ if __name__ == '__main__':
 #    img_tensor = single2tensor4(img)
 #    for i in range(8):
 #        imshow(np.concatenate((augment_img(img, i), tensor2single(augment_img_tensor4(img_tensor, i))), 1))
-    
+
 #    patches = patches_from_image(img, p_size=128, p_overlap=0, p_max=200)
 #    imssave(patches,'a.png')
-
-
-    
-    
-    
-    
-    
