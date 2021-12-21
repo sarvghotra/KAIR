@@ -63,15 +63,16 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # update opt
     # ----------------------------------------
     # -->-->-->-->-->-->-->-->-->-->-->-->-->-
-    init_iter_G, init_path_G = option.find_last_checkpoint(opt['path']['models'], net_type='G')
-    init_iter_E, init_path_E = option.find_last_checkpoint(opt['path']['models'], net_type='E')
-    opt['path']['pretrained_netG'] = init_path_G
-    opt['path']['pretrained_netE'] = init_path_E
-    init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerG')
-    opt['path']['pretrained_optimizerG'] = init_path_optimizerG
-    init_iter_schedulerG, init_path_schedulerG = option.find_last_checkpoint(opt['path']['models'], net_type='schedulerG')
-    opt['path']['pretrained_schedulerG'] = init_path_schedulerG
-    current_step = max(init_iter_G, init_iter_E, init_iter_optimizerG, init_iter_schedulerG)
+    if opt['path']['pretrained_netG'] is None:
+        init_iter_G, init_path_G = option.find_last_checkpoint(opt['path']['models'], net_type='G')
+        init_iter_E, init_path_E = option.find_last_checkpoint(opt['path']['models'], net_type='E')
+        opt['path']['pretrained_netG'] = init_path_G
+        opt['path']['pretrained_netE'] = init_path_E
+        init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerG')
+        opt['path']['pretrained_optimizerG'] = init_path_optimizerG
+        init_iter_schedulerG, init_path_schedulerG = option.find_last_checkpoint(opt['path']['models'], net_type='schedulerG')
+        opt['path']['pretrained_schedulerG'] = init_path_schedulerG
+        current_step = max(init_iter_G, init_iter_E, init_iter_optimizerG, init_iter_schedulerG)
 
     border = opt['scale']
     # --<--<--<--<--<--<--<--<--<--<--<--<--<-
