@@ -9,6 +9,7 @@ import logging
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 from utils import utils_logger
 from utils import utils_image as util
@@ -96,6 +97,8 @@ def main(json_path='options/train_msrresnet_psnr.json'):
         utils_logger.logger_info(logger_name, os.path.join(opt['path']['log'], logger_name+'.log'))
         logger = logging.getLogger(logger_name)
         logger.info(option.dict2str(opt))
+        tb_path = os.path.join(opt['path']['tb_log'], opt['task'])
+        tb_writer = SummaryWriter(tb_path)
 
     # ----------------------------------------
     # seed
@@ -212,7 +215,10 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                 logs = model.current_log()  # such as loss
                 message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step, model.current_learning_rate())
                 for k, v in logs.items():  # merge log information into message
-                    message += '{:s}: {:.3e} '.format(k, v)
+                    avg_v = sum(v)/len(v) if len(v) > 0 else v
+                    message += '{:s}: {:.3e} '.format(k, avg_v)
+                    tb_writer.add_scalar('Loss/train/' + k, avg_v, current_step)    # Tensorboard logging
+                    tb_writer.flush()
                 logger.info(message)
 
             # -------------------------------
@@ -259,9 +265,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                         # calculate PSNR
                         # -----------------------
                         current_psnr = util.calculate_psnr(E_img, H_img, border=border)
-
-                        logger.info('{:->4d}--> {:>10s} | {:<4.2f}dB'.format(idx, image_name_ext, current_psnr))
-
+                        #logger.info('{:->4d}--> {:>10s} | {:<4.2f}dB'.format(idx, image_name_ext, current_psnr))
                         avg_psnr += current_psnr
 
                     avg_psnr = avg_psnr / idx
@@ -269,6 +273,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                     if not test_name == "save_test_out":
                         # testing log
                         logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
+                        tb_writer.add_scalar('PSNR/val/' + test_name, avg_psnr, current_step)
 
 if __name__ == '__main__':
     main()
