@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
 from torch.optim import Adam
+from torch.cuda.amp import GradScaler, autocast
 
 from models.select_network import define_G, define_D
 from models.model_base import ModelBase
@@ -25,6 +26,14 @@ class ModelGAN(ModelBase):
             self.netD = self.model_to_device(self.netD)
             if self.opt_train['E_decay'] > 0:
                 self.netE = define_G(opt).to(self.device).eval()
+
+        # ----------------------------------------
+        # fp16 training
+        # ----------------------------------------
+        self.fp16 = False
+        if self.opt_train['fp16']:
+            self.fp16 = True
+            self.scaler = GradScaler()
 
     """
     # ----------------------------------------
@@ -207,28 +216,35 @@ class ModelGAN(ModelBase):
             p.requires_grad = False
 
         self.G_optimizer.zero_grad()
-        self.netG_forward()
-        loss_G_total = 0
+        with autocast(enabled=self.fp16):
+            self.netG_forward()
+            loss_G_total = 0
 
-        if current_step % self.D_update_ratio == 0 and current_step > self.D_init_iters:  # updata D first
-            if self.opt_train['G_lossfn_weight'] > 0:
-                G_loss = self.G_lossfn_weight * self.G_lossfn(self.E, self.H)
-                loss_G_total += G_loss                 # 1) pixel loss
-            if self.opt_train['F_lossfn_weight'] > 0:
-                F_loss = self.F_lossfn_weight * self.F_lossfn(self.E, self.H)
-                loss_G_total += F_loss                 # 2) VGG feature loss
+            if current_step % self.D_update_ratio == 0 and current_step > self.D_init_iters:  # updata D first
+                if self.opt_train['G_lossfn_weight'] > 0:
+                    G_loss = self.G_lossfn_weight * self.G_lossfn(self.E, self.H)
+                    loss_G_total += G_loss                 # 1) pixel loss
+                if self.opt_train['F_lossfn_weight'] > 0:
+                    with autocast(enabled=False):
+                        F_loss = self.F_lossfn_weight * self.F_lossfn(self.E, self.H)
+                    loss_G_total += F_loss                 # 2) VGG feature loss
 
-            if self.opt['train']['gan_type'] in ['gan', 'lsgan', 'wgan', 'softplusgan']:
-                pred_g_fake = self.netD(self.E)
-                D_loss = self.D_lossfn_weight * self.D_lossfn(pred_g_fake, True)
-            elif self.opt['train']['gan_type'] == 'ragan':
-                pred_d_real = self.netD(self.H).detach()
-                pred_g_fake = self.netD(self.E)
-                D_loss = self.D_lossfn_weight * (
-                        self.D_lossfn(pred_d_real - torch.mean(pred_g_fake, 0, True), False) +
-                        self.D_lossfn(pred_g_fake - torch.mean(pred_d_real, 0, True), True)) / 2
-            loss_G_total += D_loss                    # 3) GAN loss
+                if self.opt['train']['gan_type'] in ['gan', 'lsgan', 'wgan', 'softplusgan']:
+                    pred_g_fake = self.netD(self.E)
+                    D_loss = self.D_lossfn_weight * self.D_lossfn(pred_g_fake, True)
+                elif self.opt['train']['gan_type'] == 'ragan':
+                    pred_d_real = self.netD(self.H).detach()
+                    pred_g_fake = self.netD(self.E)
+                    D_loss = self.D_lossfn_weight * (
+                            self.D_lossfn(pred_d_real - torch.mean(pred_g_fake, 0, True), False) +
+                            self.D_lossfn(pred_g_fake - torch.mean(pred_d_real, 0, True), True)) / 2
+                loss_G_total += D_loss                    # 3) GAN loss
 
+        if self.fp16:
+            self.scaler.scale(loss_G_total).backward()
+            self.scaler.step(self.G_optimizer)
+            self.scaler.update()
+        else:
             loss_G_total.backward()
             self.G_optimizer.step()
 
@@ -248,25 +264,45 @@ class ModelGAN(ModelBase):
         # tensor for calculating mean.
         if self.opt_train['gan_type'] in ['gan', 'lsgan', 'wgan', 'softplusgan']:
             # real
-            pred_d_real = self.netD(self.H)                # 1) real data
-            l_d_real = self.D_lossfn(pred_d_real, True)
-            l_d_real.backward()
+            with autocast(enabled=self.fp16):
+                pred_d_real = self.netD(self.H)                # 1) real data
+                l_d_real = self.D_lossfn(pred_d_real, True)
+            if self.fp16:
+                self.scaler.scale(l_d_real).backward()
+            else:
+                l_d_real.backward()
             # fake
-            pred_d_fake = self.netD(self.E.detach().clone()) # 2) fake data, detach to avoid BP to G
-            l_d_fake = self.D_lossfn(pred_d_fake, False)
-            l_d_fake.backward()
+            with autocast(enabled=self.fp16):
+                pred_d_fake = self.netD(self.E.detach().clone()) # 2) fake data, detach to avoid BP to G
+                l_d_fake = self.D_lossfn(pred_d_fake, False)
+            if self.fp16:
+                self.scaler.scale(l_d_fake).backward()
+            else:
+                l_d_fake.backward()
         elif self.opt_train['gan_type'] == 'ragan':
             # real
-            pred_d_fake = self.netD(self.E).detach()       # 1) fake data, detach to avoid BP to G
-            pred_d_real = self.netD(self.H)                # 2) real data
-            l_d_real = 0.5 * self.D_lossfn(pred_d_real - torch.mean(pred_d_fake, 0, True), True)
-            l_d_real.backward()
+            with autocast(enabled=self.fp16):
+                pred_d_fake = self.netD(self.E).detach()       # 1) fake data, detach to avoid BP to G
+                pred_d_real = self.netD(self.H)                # 2) real data
+                l_d_real = 0.5 * self.D_lossfn(pred_d_real - torch.mean(pred_d_fake, 0, True), True)
+            if self.fp16:
+                self.scaler.scale(l_d_real).backward()
+            else:
+                l_d_real.backward()
             # fake
-            pred_d_fake = self.netD(self.E.detach())
-            l_d_fake = 0.5 * self.D_lossfn(pred_d_fake - torch.mean(pred_d_real.detach(), 0, True), False)
-            l_d_fake.backward()
+            with autocast(enabled=self.fp16):
+                pred_d_fake = self.netD(self.E.detach())
+                l_d_fake = 0.5 * self.D_lossfn(pred_d_fake - torch.mean(pred_d_real.detach(), 0, True), False)
+            if self.fp16:
+                self.scaler.scale(l_d_fake).backward()
+            else:
+                l_d_fake.backward()
 
-        self.D_optimizer.step()
+        if self.fp16:
+            self.scaler.step(self.D_optimizer)
+            self.scaler.update()
+        else:
+            self.D_optimizer.step()
 
         # ------------------------------------
         # record log

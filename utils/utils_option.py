@@ -103,6 +103,12 @@ def parse(opt_path, is_train=True):
     print('number of GPUs is: ' + str(opt['num_gpu']))
 
     # ----------------------------------------
+    # default setting for fp16 mixed precision training
+    # ----------------------------------------
+    if 'fp16' not in opt['train']:
+        opt['train']['fp16'] = False
+
+    # ----------------------------------------
     # default setting for perceptual loss
     # ----------------------------------------
     if 'F_feature_layer' not in opt['train']:
