@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
 from torch.optim import Adam
+from torch.cuda.amp import GradScaler, autocast
 
 from models.select_network import define_G
 from models.model_base import ModelBase
@@ -25,6 +26,14 @@ class ModelPlain(ModelBase):
         self.netG = self.model_to_device(self.netG)
         if self.opt_train['E_decay'] > 0:
             self.netE = define_G(opt).to(self.device).eval()
+
+        # ----------------------------------------
+        # fp16 training
+        # ----------------------------------------
+        self.fp16 = False
+        if self.opt_train['fp16']:
+            self.fp16 = True
+            self.scaler = GradScaler()
 
     """
     # ----------------------------------------
@@ -160,9 +169,14 @@ class ModelPlain(ModelBase):
     # ----------------------------------------
     def optimize_parameters(self, current_step):
         self.G_optimizer.zero_grad()
-        self.netG_forward()
-        G_loss = self.G_lossfn_weight * self.G_lossfn(self.E, self.H)
-        G_loss.backward()
+        with autocast(enabled=self.fp16):
+            self.netG_forward()
+            G_loss = self.G_lossfn_weight * self.G_lossfn(self.E, self.H)
+
+        if self.fp16:
+            self.scaler.scale(G_loss).backward()
+        else:
+            G_loss.backward()
 
         # ------------------------------------
         # clip_grad
@@ -170,9 +184,15 @@ class ModelPlain(ModelBase):
         # `clip_grad_norm` helps prevent the exploding gradient problem.
         G_optimizer_clipgrad = self.opt_train['G_optimizer_clipgrad'] if self.opt_train['G_optimizer_clipgrad'] else 0
         if G_optimizer_clipgrad > 0:
+            if self.fp16:
+                self.unscale_(self.G_optimizer)
             torch.nn.utils.clip_grad_norm_(self.parameters(), max_norm=self.opt_train['G_optimizer_clipgrad'], norm_type=2)
 
-        self.G_optimizer.step()
+        if self.fp16:
+            self.scaler.step(self.G_optimizer)
+            self.scaler.update()
+        else:
+            self.G_optimizer.step()
 
         # ------------------------------------
         # regularizer
