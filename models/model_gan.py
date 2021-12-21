@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import copy
 import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
@@ -46,6 +47,7 @@ class ModelGAN(ModelBase):
     # initialize training
     # ----------------------------------------
     def init_train(self):
+        self.log_dict = OrderedDict()         # log
         self.load()                           # load model
         self.netG.train()                     # set training mode,for BN
         self.netD.train()                     # set training mode,for BN
@@ -53,7 +55,6 @@ class ModelGAN(ModelBase):
         self.define_optimizer()               # define optimizer
         self.load_optimizers()                # load optimizer
         self.define_scheduler()               # define scheduler
-        self.log_dict = OrderedDict()         # log
 
     # ----------------------------------------
     # load pre-trained G and D model
@@ -124,6 +125,7 @@ class ModelGAN(ModelBase):
             else:
                 raise NotImplementedError('Loss type [{:s}] is not found.'.format(G_lossfn_type))
             self.G_lossfn_weight = self.opt_train['G_lossfn_weight']
+            self.log_dict['G_loss'] = []
         else:
             print('Do not use pixel loss.')
             self.G_lossfn = None
@@ -144,6 +146,7 @@ class ModelGAN(ModelBase):
                 self.F_lossfn.vgg = self.model_to_device(self.F_lossfn.vgg)
                 self.F_lossfn.lossfn = self.F_lossfn.lossfn.to(self.device)
             self.F_lossfn_weight = self.opt_train['F_lossfn_weight']
+            self.log_dict['F_loss'] = []
         else:
             print('Do not use feature loss.')
             self.F_lossfn = None
@@ -153,6 +156,9 @@ class ModelGAN(ModelBase):
         # ------------------------------------
         self.D_lossfn = GANLoss(self.opt_train['gan_type'], 1.0, 0.0).to(self.device)
         self.D_lossfn_weight = self.opt_train['D_lossfn_weight']
+        self.log_dict['D_loss'] = []
+        self.log_dict['D_real'] = []
+        self.log_dict['D_fake'] = []
 
         self.D_update_ratio = self.opt_train['D_update_ratio'] if self.opt_train['D_update_ratio'] else 1
         self.D_init_iters = self.opt_train['D_init_iters'] if self.opt_train['D_init_iters'] else 0
@@ -309,15 +315,15 @@ class ModelGAN(ModelBase):
         # ------------------------------------
         if current_step % self.D_update_ratio == 0 and current_step > self.D_init_iters:
             if self.opt_train['G_lossfn_weight'] > 0:
-                self.log_dict['G_loss'] = G_loss.item()
+                self.log_dict['G_loss'].append(G_loss.item())
             if self.opt_train['F_lossfn_weight'] > 0:
-                self.log_dict['F_loss'] = F_loss.item()
-            self.log_dict['D_loss'] = D_loss.item()
+                self.log_dict['F_loss'].append(F_loss.item())
+            self.log_dict['D_loss'].append(D_loss.item())
 
         #self.log_dict['l_d_real'] = l_d_real.item()
         #self.log_dict['l_d_fake'] = l_d_fake.item()
-        self.log_dict['D_real'] = torch.mean(pred_d_real.detach())
-        self.log_dict['D_fake'] = torch.mean(pred_d_fake.detach())
+        self.log_dict['D_real'].append(torch.mean(pred_d_real.detach()))
+        self.log_dict['D_fake'].append(torch.mean(pred_d_fake.detach()))
 
         if self.opt_train['E_decay'] > 0:
             self.update_E(self.opt_train['E_decay'])
@@ -335,7 +341,10 @@ class ModelGAN(ModelBase):
     # get log_dict
     # ----------------------------------------
     def current_log(self):
-        return self.log_dict
+        log_copy = copy.deepcopy(self.log_dict)
+        for k in self.log_dict.keys():
+            self.log_dict[k] = []
+        return log_copy
 
     # ----------------------------------------
     # get L, E, H images

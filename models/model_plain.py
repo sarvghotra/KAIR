@@ -1,4 +1,5 @@
 from collections import OrderedDict
+import copy
 import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
@@ -54,6 +55,7 @@ class ModelPlain(ModelBase):
         self.define_scheduler()               # define scheduler
         self.load_schedulers()                 # load scheduler
         self.log_dict = OrderedDict()         # log
+        self.log_dict['G_loss'] = []
 
     # ----------------------------------------
     # load pre-trained G model
@@ -205,7 +207,7 @@ class ModelPlain(ModelBase):
             self.netG.apply(regularizer_clip)
 
         # self.log_dict['G_loss'] = G_loss.item()/self.E.size()[0]  # if `reduction='sum'`
-        self.log_dict['G_loss'] = G_loss.item()
+        self.log_dict['G_loss'].append(G_loss.item())
 
         if self.opt_train['E_decay'] > 0:
             self.update_E(self.opt_train['E_decay'])
@@ -232,7 +234,9 @@ class ModelPlain(ModelBase):
     # get log_dict
     # ----------------------------------------
     def current_log(self):
-        return self.log_dict
+        log_copy = copy.deepcopy(self.log_dict)
+        self.log_dict['G_loss'] = []
+        return log_copy
 
     # ----------------------------------------
     # get L, E, H image
