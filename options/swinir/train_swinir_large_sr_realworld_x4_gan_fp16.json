@@ -1,0 +1,133 @@
+{
+    "task": "x4_large_ph2"     // real-world image sr. root/task/images-models-options
+    , "model": "gan" // "plain" | "plain2" if two inputs
+    , "n_gpus": 8   // optional argument if you don't want to specify the gpu_ids
+    , "gpu_ids": [0,1,2,3,4,5,6,7]  // this overrides n_gpus argument
+    , "dist": true
+    , "find_unused_parameters": false
+
+    , "scale": 4       // broadcast to "datasets"
+    , "n_channels": 3  // broadcast to "datasets", 1 for grayscale, 3 for color
+
+    , "path": {
+      "root": "/data/models/deep_enhance/swinIR/x4/fp16/ph2"            // "denoising" | "superresolution" | "dejpeg"
+      , "pretrained_netG": null      // path of pretrained model
+      , "pretrained_netD": null    // path of pretrained model
+      , "pretrained_netE": null      // path of pretrained model
+      , "pretrained_schedulerG": null
+      , "pretrained_optimizerG": null
+    }
+
+    , "datasets": {
+      "train": {
+        "name": "train_dataset"           // just name
+        , "dataset_type": "blindsr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+        , "dataroot_H": ["/data/datasets/img/train/Flickr2K/Flickr2K_HR/", "/data/datasets/img/train/DIV2K/DIV2K_train_HR", "/data/datasets/img/train/OST_dataset/001/OutdoorSceneTrain_v2/", "/data/datasets/img/train/SCUT-CTW1500/train_images", "/data/datasets/img/train/exploration_database_and_code/pristine_images", "/data/datasets/img/ffhq/in-the-wild-images"] // path of H training dataset. DIV2K (800 training images) + Flickr2K (2650 images) + + OST (10324 images)
+        , "dataroot_L": null            // path of L training dataset
+        , "cache_dir": "/data/models/deep_enhance/cache"    // dir to save the name of trainnig image filenames to avoid reading everytime
+        , "degradation_type": "bsrgan"    // "bsrgan" | "bsrgan_plus"
+        , "H_size": 256                   // patch_size 256 | 288 | 320
+        , "shuffle_prob": 0.1             //
+        , "lq_patchsize": 64              // Note: lq_patchsize overrides H_size with lq_patchsize*scale, so if it was 60 then H_size = 60*4
+        , "use_sharp": true
+
+        , "dataloader_shuffle": true
+        , "dataloader_num_workers": 16
+        , "dataloader_batch_size": 32      // batch size 1 | 16 | 32 | 48 | 64 | 128. Total batch size =4x8=32 in SwinIR
+      }
+      , "test": {
+        "name": "test_dataset"            // just name
+        , "dataset_type": "blindsr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+        , "dataroot_H": ["/data/datasets/img/benchmark/RealSRSet+5images"]  // path of H testing dataset
+        , "dataroot_L": null              // path of L testing dataset
+        , "cache_dir": "/data/models/deep_enhance/cache"    // saves or reads train filenames in a file in this dir
+
+        , "degradation_type": "bsrgan"    // "bsrgan" | "bsrgan_plus"
+        , "H_size": 256                   // patch_size 256 | 288 | 320
+        , "shuffle_prob": 0.1             //
+        , "lq_patchsize": 64
+        , "use_sharp": false
+      }
+
+     , "save_test_out": {              // just for inference during training for quality eval of the checkpoint
+        "name": "manual_test_dataset"            // just name
+        , "dataset_type": "sr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+        , "dataroot_H": "/data/datasets/img/benchmark/x1_test_set_manual_subset"  // path of H testing dataset
+        , "dataroot_L": "/data/datasets/img/benchmark/x1_test_set_manual_subset"  // path of L testing dataset
+      }
+    }
+
+    , "netG": {
+      "net_type": "swinir"
+      , "upscale": 4
+      , "in_chans": 3
+      , "img_size": 64
+      , "window_size": 8
+      , "img_range": 1.0
+      , "depths": [6, 6, 6, 6, 6, 6, 6, 6, 6]
+      , "embed_dim": 240
+      , "num_heads": [8, 8, 8, 8, 8, 8, 8, 8, 8]
+      , "mlp_ratio": 2
+      , "upsampler": "nearest+conv"        // "pixelshuffle" | "pixelshuffledirect" | "nearest+conv" | null
+      , "resi_connection": "3conv"        // "1conv" | "3conv"
+      , "init_type": "default"
+    }
+
+    , "netD": {
+        "net_type": "discriminator_unet" // "discriminator_patchgan" | "discriminator_unet"
+        , "in_nc": 3
+        , "base_nc": 64
+        , "n_layers": 3                  // only for "net_type":"discriminator_patchgan"
+        , "norm_type": "spectral"        // only for "net_type":"discriminator_patchgan"  | 'batch', 'instance', 'spectral', 'batchspectral', 'instancespectral'
+
+        , "init_type": "orthogonal"      // "orthogonal" | "normal" | "uniform" | "xavier_normal" | "xavier_uniform" | "kaiming_normal" | "kaiming_uniform"
+        , "init_bn_type": "uniform"      // "uniform" | "constant"
+        , "init_gain": 0.2
+    }
+
+    , "train": {
+      "G_lossfn_type": "l1"               // "l1" preferred | "l2sum" | "l2" | "ssim" | "charbonnier"
+      , "G_lossfn_weight": 1.0            // default
+
+      , "F_lossfn_type": "l1"  // "l1" | "l2"
+      , "F_lossfn_weight": 1
+      , "F_feature_layer": [2,7,16,25,34]        // 25 | [2,7,16,25,34]
+      , "F_weights": [0.1,0.1,1.0,1.0,1.0]       // 1.0 | [0.1,0.1,1.0,1.0,1.0]
+      , "F_use_input_norm": true
+      , "F_use_range_norm": false
+
+      , "gan_type": "gan"     // "gan" | "ragan" | "lsgan" | "wgan" | "softplusgan"
+      , "D_lossfn_weight": 0.1
+
+      , "E_decay": 0.999                  // Exponential Moving Average for netG: set 0 to disable; default setting 0.999
+      , "fp16": true
+
+      , "D_init_iters": 0
+
+      , "G_optimizer_type": "adam"
+      , "G_optimizer_lr": 1e-4  // learning rate
+      , "G_optimizer_wd": 0
+
+      , "D_optimizer_type": "adam"
+      , "D_optimizer_lr": 1e-4  // learning rate
+      , "D_optimizer_wd": 0
+
+      , "G_scheduler_type": "MultiStepLR" // "MultiStepLR" is enough
+      , "G_scheduler_milestones": [400000, 500000, 550000, 575000, 600000]
+      , "G_scheduler_gamma": 0.5
+      , "G_scheduler_reuse": true         //
+
+      , "D_scheduler_type": "MultiStepLR"
+      , "D_scheduler_milestones": [400000, 500000, 550000, 575000, 600000]
+      , "D_scheduler_gamma": 0.5
+      , "D_optimizer_reuse": false
+
+      , "G_param_strict": true
+      , "D_param_strict": true
+      , "E_param_strict": true
+
+      , "checkpoint_test": 50000           // for testing
+      , "checkpoint_save": 50000           // for saving model
+      , "checkpoint_print": 500           // for print
+    }
+  }
