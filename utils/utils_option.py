@@ -89,7 +89,9 @@ def parse(opt_path, is_train=True):
     # ----------------------------------------
     # GPU devices
     # ----------------------------------------
-    opt['gpu_ids'] = [x for x in range(opt['n_gpus'])]
+    if 'gpu_ids' not in opt:
+        opt['gpu_ids'] = [x for x in range(opt['n_gpus'])]
+
     gpu_list = ','.join(str(x) for x in opt['gpu_ids'])
     os.environ['CUDA_VISIBLE_DEVICES'] = gpu_list
     print('export CUDA_VISIBLE_DEVICES=' + gpu_list)
