@@ -1,10 +1,55 @@
+# Have made some changes to train (large) swinIR models for x1 (only denoising), x2, x3, and x4
+
+- Following are some noteable features/changes:
+    1. Fp16 support
+    2. Tensorboard support
+    3. Absolute paths are required in the config (json) files
+    4. Added bash scripts for distributed training on single and multiple nodes
+    5. Infer and save images during trainig for `save_test_out` under `datasets` in a config for quality evaluation of the intermediate checkpoints
+    6. Added bash scripts for distributed training on single (`dist_train_model.sh`) and multiple (`multi_node_train_model.sh`) nodes
+
+- Instructions for distributed training:
+    1. Update `num_gpus_per_node` argument in `dist_train_model.sh`
+    2. In `dist_train_model.sh`, set `opt` to options/swinir/train_swinir_large_sr_realworld_x4_psnr_fp16.json or options/swinir/train_swinir_large_sr_realworld_x4_gan_fp16.json, for PSNR (phase1) or GAN (phase2) trainings, respectively
+    2. Launch training:
+        - For single node training, run the following cmd:
+            > bash dist_train_model.sh 1 0 127.0.0.1
+        - For multi node training:
+            1. Create /job/.ssh/config file with information of all the nodes in the following format:
+                - An e.g. of 2 nodes system where ps-0 is the node from where is the training job is launched
+                  ```
+                  Host ps-0
+                    HostName 192.168.0.38
+                    Port 42076
+                    User foo
+                    StrictHostKeyChecking no
+                    UserKnownHostsFile /dev/null
+
+                  Host worker-0
+                    HostName 192.168.0.38
+                    Port 48575
+                    User foo
+                    StrictHostKeyChecking no
+                    UserKnownHostsFile /dev/null
+
+                  Host worker-1
+                    HostName 192.168.0.101
+                    Port 46577
+                    User foo
+                    StrictHostKeyChecking no
+                    UserKnownHostsFile /dev/null
+                  ```
+            2. Run the cmd to kick off the training
+                > bash multi_node_train_model.sh ./dist_train_model.sh
+
+
 # SwinIR: Image Restoration Using Shifted Window Transformer
 [paper](https://arxiv.org/abs/2108.10257)
-**|** 
+**|**
 [supplementary](https://github.com/JingyunLiang/SwinIR/releases/tag/v0.0)
-**|** 
+**|**
 [visual results](https://github.com/JingyunLiang/SwinIR/releases/tag/v0.0)
-**|** 
+**|**
 [original project page](https://github.com/JingyunLiang/SwinIR)
 **|**
 [online Colab demo](https://colab.research.google.com/gist/JingyunLiang/a5e3e54bc9ef8d7bf594f6fee8208533/swinir-demo-on-real-world-image-sr.ipynb)
@@ -21,16 +66,16 @@
 
 Training and testing sets can be downloaded as follows. Please put them in `trainsets` and `testsets` respectively.
 
-| Task                 | Training Set | Testing Set|       
+| Task                 | Training Set | Testing Set|
 | :---                 | :---:        |     :---:      |
 | classical/lightweight image SR          | [DIV2K](https://cv.snu.ac.kr/research/EDSR/DIV2K.tar) (800 training images) or DIV2K +[Flickr2K](https://cv.snu.ac.kr/research/EDSR/Flickr2K.tar) (2650 images) | set5 + Set14 + BSD100 + Urban100 + Manga109 [download all](https://drive.google.com/drive/folders/1B3DJGQKB6eNdwuQIhdskA64qUuVKLZ9u) |
-| real-world image SR          | SwinIR-M (middle size): [DIV2K](https://cv.snu.ac.kr/research/EDSR/DIV2K.tar) (800 training images) +[Flickr2K](https://cv.snu.ac.kr/research/EDSR/Flickr2K.tar) (2650 images) + [OST](https://openmmlab.oss-cn-hangzhou.aliyuncs.com/datasets/OST_dataset.zip) (10324 images, sky,water,grass,mountain,building,plant,animal) <br /> SwinIR-L (large size): DIV2K + Flickr2K + OST + [WED](http://ivc.uwaterloo.ca/database/WaterlooExploration/exploration_database_and_code.rar)(4744 images) + [FFHQ](https://drive.google.com/drive/folders/1tZUcXDBeOibC6jcMCtgRRz67pzrAHeHL) (first 2000 images, face) + Manga109 (manga) + [SCUT-CTW1500](https://universityofadelaide.box.com/shared/static/py5uwlfyyytbb2pxzq9czvu6fuqbjdh8.zip) (first 100 training images, texts) <br /><br />  ***We use the first practical degradation model [BSRGAN, ICCV2021  ![GitHub Stars](https://img.shields.io/github/stars/cszn/BSRGAN?style=social)](https://github.com/cszn/BSRGAN) for real-world image SR** | [RealSRSet+5images](https://github.com/JingyunLiang/SwinIR/releases/download/v0.0/RealSRSet+5images.zip) | 
-| color/grayscale image denoising      | [DIV2K](https://cv.snu.ac.kr/research/EDSR/DIV2K.tar) (800 training images) + [Flickr2K](https://cv.snu.ac.kr/research/EDSR/Flickr2K.tar) (2650 images) + [BSD500](http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/BSR/BSR_bsds500.tgz) (400 training&testing images) + [WED](http://ivc.uwaterloo.ca/database/WaterlooExploration/exploration_database_and_code.rar)(4744 images) |  grayscale: Set12 + BSD68 + Urban100 <br />  color: CBSD68 + Kodak24 + McMaster + Urban100 [download all](https://github.com/cszn/FFDNet/tree/master/testsets) | 
+| real-world image SR          | SwinIR-M (middle size): [DIV2K](https://cv.snu.ac.kr/research/EDSR/DIV2K.tar) (800 training images) +[Flickr2K](https://cv.snu.ac.kr/research/EDSR/Flickr2K.tar) (2650 images) + [OST](https://openmmlab.oss-cn-hangzhou.aliyuncs.com/datasets/OST_dataset.zip) (10324 images, sky,water,grass,mountain,building,plant,animal) <br /> SwinIR-L (large size): DIV2K + Flickr2K + OST + [WED](http://ivc.uwaterloo.ca/database/WaterlooExploration/exploration_database_and_code.rar)(4744 images) + [FFHQ](https://drive.google.com/drive/folders/1tZUcXDBeOibC6jcMCtgRRz67pzrAHeHL) (first 2000 images, face) + Manga109 (manga) + [SCUT-CTW1500](https://universityofadelaide.box.com/shared/static/py5uwlfyyytbb2pxzq9czvu6fuqbjdh8.zip) (first 100 training images, texts) <br /><br />  ***We use the first practical degradation model [BSRGAN, ICCV2021  ![GitHub Stars](https://img.shields.io/github/stars/cszn/BSRGAN?style=social)](https://github.com/cszn/BSRGAN) for real-world image SR** | [RealSRSet+5images](https://github.com/JingyunLiang/SwinIR/releases/download/v0.0/RealSRSet+5images.zip) |
+| color/grayscale image denoising      | [DIV2K](https://cv.snu.ac.kr/research/EDSR/DIV2K.tar) (800 training images) + [Flickr2K](https://cv.snu.ac.kr/research/EDSR/Flickr2K.tar) (2650 images) + [BSD500](http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/BSR/BSR_bsds500.tgz) (400 training&testing images) + [WED](http://ivc.uwaterloo.ca/database/WaterlooExploration/exploration_database_and_code.rar)(4744 images) |  grayscale: Set12 + BSD68 + Urban100 <br />  color: CBSD68 + Kodak24 + McMaster + Urban100 [download all](https://github.com/cszn/FFDNet/tree/master/testsets) |
 | JPEG compression artifact reduction  | [DIV2K](https://cv.snu.ac.kr/research/EDSR/DIV2K.tar) (800 training images) + [Flickr2K](https://cv.snu.ac.kr/research/EDSR/Flickr2K.tar) (2650 images) + [BSD500](http://www.eecs.berkeley.edu/Research/Projects/CS/vision/grouping/BSR/BSR_bsds500.tgz) (400 training&testing images) + [WED](http://ivc.uwaterloo.ca/database/WaterlooExploration/exploration_database_and_code.rar)(4744 images) |  grayscale: Classic5 +LIVE1 [download all](https://github.com/cszn/DnCNN/tree/master/testsets) |
 
 
 ### Training
-To train SwinIR, run the following commands. You may need to change the `dataroot_H`, `dataroot_L`, `scale factor`, `noisel level`, `JPEG level`, `G_optimizer_lr`, `G_scheduler_milestones`, etc. in the json file for different settings. 
+To train SwinIR, run the following commands. You may need to change the `dataroot_H`, `dataroot_L`, `scale factor`, `noisel level`, `JPEG level`, `G_optimizer_lr`, `G_scheduler_milestones`, etc. in the json file for different settings.
 
 
 
@@ -71,7 +116,7 @@ Note:
 
 2, For SR, we use different kinds of `Upsampler` in classical/lightweight/real-world image SR for the purpose of fair comparison with existing works.
 
-3, We did not re-train the models after cleaning the codes. Feel free to open an issue if you meet any problems. 
+3, We did not re-train the models after cleaning the codes. Feel free to open an issue if you meet any problems.
 
 ## Testing
 Following command will download the [pretrained models](https://github.com/JingyunLiang/SwinIR/releases/tag/v0.0) and put them in `model_zoo/swinir`. All visual results of SwinIR can be downloaded [here](https://github.com/JingyunLiang/SwinIR/releases/tag/v0.0).
@@ -154,7 +199,7 @@ python main_test_swinir.py --task jpeg_car --jpeg 40 --model_path model_zoo/swin
 
 
 |&nbsp;&nbsp;&nbsp; Real-World Image (x4)|[BSRGAN, ICCV2021](https://github.com/cszn/BSRGAN)|[Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)|SwinIR (ours)|
-|      :---      |     :---:        |        :-----:         |        :-----:         | 
+|      :---      |     :---:        |        :-----:         |        :-----:         |
 |<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/ETH_LR.png">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/ETH_BSRGAN.png">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/ETH_realESRGAN.jpg">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/ETH_SwinIR.png">
 |<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/OST_009_crop_LR.png">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/OST_009_crop_BSRGAN.png">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/OST_009_crop_realESRGAN.png">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/OST_009_crop_SwinIR.png">|
 
@@ -189,6 +234,6 @@ for more results.
     @article{liang2021swinir,
         title={SwinIR: Image Restoration Using Swin Transformer},
         author={Liang, Jingyun and Cao, Jiezhang and Sun, Guolei and Zhang, Kai and Van Gool, Luc and Timofte, Radu},
-        journal={arXiv preprint arXiv:2108.10257}, 
+        journal={arXiv preprint arXiv:2108.10257},
         year={2021}
     }
