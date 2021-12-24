@@ -1,5 +1,15 @@
+## Have made changes for training x1 (only enhance), x2, x3, and x4 SwinIR (large) model
+- For my changes and training instructions specific to SwinIR, please check [README_SwinIR](https://github.com/cszn/KAIR/blob/master/docs/README_SwinIR.md)
+
+- Following features/changes are applicable for training all other non-SwinIR models as well
+    1. Fp16 training support
+    2. Tensorboard support
+    3. Absolute paths are required in the config (json) files
+    4. Added bash scripts for distributed training on single and multiple nodes
+
+
 ## Training and testing codes for USRNet, DnCNN, FFDNet, SRMD, DPSR, MSRResNet, ESRGAN, BSRGAN, SwinIR
-[![download](https://img.shields.io/github/downloads/cszn/KAIR/total.svg)](https://github.com/cszn/KAIR/releases) ![visitors](https://visitor-badge.glitch.me/badge?page_id=cszn/KAIR) 
+[![download](https://img.shields.io/github/downloads/cszn/KAIR/total.svg)](https://github.com/cszn/KAIR/releases) ![visitors](https://visitor-badge.glitch.me/badge?page_id=cszn/KAIR)
 
 [Kai Zhang](https://cszn.github.io/)
 
@@ -11,23 +21,23 @@ _______
 - **_News (2021-09-07)_**: We upload [the training code](https://github.com/cszn/KAIR/blob/master/docs/README_SwinIR.md) of [SwinIR ![GitHub Stars](https://img.shields.io/github/stars/JingyunLiang/SwinIR?style=social)](https://github.com/JingyunLiang/SwinIR) and provide an [interactive online Colob demo for real-world image SR](https://colab.research.google.com/gist/JingyunLiang/a5e3e54bc9ef8d7bf594f6fee8208533/swinir-demo-on-real-world-image-sr.ipynb). Try to super-resolve your own images on Colab! <a href="https://colab.research.google.com/gist/JingyunLiang/a5e3e54bc9ef8d7bf594f6fee8208533/swinir-demo-on-real-world-image-sr.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="google colab logo"></a>
 
 |Real-World Image (x4)|[BSRGAN, ICCV2021](https://github.com/cszn/BSRGAN)|[Real-ESRGAN](https://github.com/xinntao/Real-ESRGAN)|SwinIR (ours)|
-|      :---      |     :---:        |        :-----:         |        :-----:         | 
+|      :---      |     :---:        |        :-----:         |        :-----:         |
 |<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/ETH_LR.png">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/ETH_BSRGAN.png">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/ETH_realESRGAN.jpg">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/ETH_SwinIR.png">
 |<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/OST_009_crop_LR.png">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/OST_009_crop_BSRGAN.png">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/OST_009_crop_realESRGAN.png">|<img width="200" src="https://raw.githubusercontent.com/JingyunLiang/SwinIR/main/figs/OST_009_crop_SwinIR.png">|
 
 - **_News (2021-08-31)_**: We upload the [training code of BSRGAN](https://github.com/cszn/BSRGAN#training).
 - **_News (2021-08-24)_**: We upload the BSRGAN degradation model.
-- **_News (2021-08-22)_**: Support multi-feature-layer VGG perceptual loss and UNet discriminator. 
-- **_News (2021-08-18)_**: We upload the extended BSRGAN degradation model. It is slightly different from our published version. 
+- **_News (2021-08-22)_**: Support multi-feature-layer VGG perceptual loss and UNet discriminator.
+- **_News (2021-08-18)_**: We upload the extended BSRGAN degradation model. It is slightly different from our published version.
 
 - **_News (2021-06-03)_**: Add testing codes of [GPEN (CVPR21)](https://github.com/yangxy/GPEN) for face image enhancement: [main_test_face_enhancement.py](https://github.com/cszn/KAIR/blob/master/main_test_face_enhancement.py)
 
-<img src="figs/face_04_comparison.png" width="730px"/> 
-<img src="figs/face_13_comparison.png" width="730px"/> 
-<img src="figs/face_08_comparison.png" width="730px"/> 
-<img src="figs/face_01_comparison.png" width="730px"/> 
-<img src="figs/face_12_comparison.png" width="730px"/> 
-<img src="figs/face_10_comparison.png" width="730px"/> 
+<img src="figs/face_04_comparison.png" width="730px"/>
+<img src="figs/face_13_comparison.png" width="730px"/>
+<img src="figs/face_08_comparison.png" width="730px"/>
+<img src="figs/face_01_comparison.png" width="730px"/>
+<img src="figs/face_12_comparison.png" width="730px"/>
+<img src="figs/face_10_comparison.png" width="730px"/>
 
 
 - **_News (2021-05-13)_**: Add [PatchGAN discriminator](https://github.com/cszn/KAIR/blob/master/models/network_discriminator.py).
@@ -147,31 +157,31 @@ Network architectures
 ----------
 * [USRNet](https://github.com/cszn/USRNet)
 
-  <img src="https://github.com/cszn/USRNet/blob/master/figs/architecture.png" width="600px"/> 
+  <img src="https://github.com/cszn/USRNet/blob/master/figs/architecture.png" width="600px"/>
 
 * DnCNN
 
-  <img src="https://github.com/cszn/DnCNN/blob/master/figs/dncnn.png" width="600px"/> 
- 
+  <img src="https://github.com/cszn/DnCNN/blob/master/figs/dncnn.png" width="600px"/>
+
 * IRCNN denoiser
 
- <img src="https://github.com/lipengFu/IRCNN/raw/master/Image/image_2.png" width="680px"/> 
+ <img src="https://github.com/lipengFu/IRCNN/raw/master/Image/image_2.png" width="680px"/>
 
 * FFDNet
 
-  <img src="https://github.com/cszn/FFDNet/blob/master/figs/ffdnet.png" width="600px"/> 
+  <img src="https://github.com/cszn/FFDNet/blob/master/figs/ffdnet.png" width="600px"/>
 
 * SRMD
 
-  <img src="https://github.com/cszn/SRMD/blob/master/figs/architecture.png" width="605px"/> 
+  <img src="https://github.com/cszn/SRMD/blob/master/figs/architecture.png" width="605px"/>
 
 * SRResNet, SRGAN, RRDB, ESRGAN
 
-  <img src="https://github.com/xinntao/ESRGAN/blob/master/figures/architecture.jpg" width="595px"/> 
-  
+  <img src="https://github.com/xinntao/ESRGAN/blob/master/figures/architecture.jpg" width="595px"/>
+
 * IMDN
 
-  <img src="figs/imdn.png" width="460px"/>  ----- <img src="figs/imdn_block.png" width="100px"/> 
+  <img src="figs/imdn.png" width="460px"/>  ----- <img src="figs/imdn_block.png" width="100px"/>
 
 
 
@@ -180,10 +190,10 @@ Testing
 |Method | [model_zoo](model_zoo)|
 |---|---|
 | [main_test_dncnn.py](main_test_dncnn.py) |```dncnn_15.pth, dncnn_25.pth, dncnn_50.pth, dncnn_gray_blind.pth, dncnn_color_blind.pth, dncnn3.pth```|
-| [main_test_ircnn_denoiser.py](main_test_ircnn_denoiser.py) | ```ircnn_gray.pth, ircnn_color.pth```| 
+| [main_test_ircnn_denoiser.py](main_test_ircnn_denoiser.py) | ```ircnn_gray.pth, ircnn_color.pth```|
 | [main_test_fdncnn.py](main_test_fdncnn.py) | ```fdncnn_gray.pth, fdncnn_color.pth, fdncnn_gray_clip.pth, fdncnn_color_clip.pth```|
 | [main_test_ffdnet.py](main_test_ffdnet.py) | ```ffdnet_gray.pth, ffdnet_color.pth, ffdnet_gray_clip.pth, ffdnet_color_clip.pth```|
-| [main_test_srmd.py](main_test_srmd.py) | ```srmdnf_x2.pth, srmdnf_x3.pth, srmdnf_x4.pth, srmd_x2.pth, srmd_x3.pth, srmd_x4.pth```| 
+| [main_test_srmd.py](main_test_srmd.py) | ```srmdnf_x2.pth, srmdnf_x3.pth, srmdnf_x4.pth, srmd_x2.pth, srmd_x3.pth, srmd_x4.pth```|
 |  | **The above models are converted from MatConvNet.** |
 | [main_test_dpsr.py](main_test_dpsr.py) | ```dpsr_x2.pth, dpsr_x3.pth, dpsr_x4.pth, dpsr_x4_gan.pth```|
 | [main_test_msrresnet.py](main_test_msrresnet.py) | ```msrresnet_x4_psnr.pth, msrresnet_x4_gan.pth```|
