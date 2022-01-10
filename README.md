@@ -1,12 +1,14 @@
-## Have made changes for training x1 (only enhance), x2, x3, and x4 SwinIR (large) model
-- For my changes and training instructions specific to SwinIR, please check [README_SwinIR](https://github.com/cszn/KAIR/blob/master/docs/README_SwinIR.md)
+## Changes on top of the original work for **faster** SwinIR training
 
-- Following features/changes are applicable for training all other non-SwinIR models as well
-    1. Fp16 training support
-    2. Tensorboard support
-    3. Absolute paths are required in the config (json) files
-    4. Added bash scripts for distributed training on single and multiple nodes
+In order to train large swinIR model efficiently for enhance/restoration (x1) and super-resolution (x2, x3, x4...) scenarios, following changes were made:
+  1. Fp16 training support
+  2. Tensorboard support
+  3. Added bash scripts for distributed training on single and multiple nodes
+  4. Requires absolute paths in config file as opposed to relative in the original codebase
 
+- For SwinIR training instructions specific to my changes, please check [README_SwinIR](https://github.com/sarvghotra/KAIR/blob/master/docs/README_SwinIR.md#changes-on-top-of-the-original-work-for-training-large-swinir-model-and-faster)
+<br/><br/>
+_______
 
 ## Training and testing codes for USRNet, DnCNN, FFDNet, SRMD, DPSR, MSRResNet, ESRGAN, BSRGAN, SwinIR
 [![download](https://img.shields.io/github/downloads/cszn/KAIR/total.svg)](https://github.com/cszn/KAIR/releases) ![visitors](https://visitor-badge.glitch.me/badge?page_id=cszn/KAIR)
