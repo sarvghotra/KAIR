@@ -1,6 +1,6 @@
-# Have made some changes to train (large) swinIR models for x1 (only denoising), x2, x3, and x4
+# Made some changes to train (large) swinIR models for x1 (only denoising), x2, x3, and x4 scenarios more efficiently
 
-- Following are some noteable features/changes:
+## Following are some noteable changes:
     1. Fp16 support
     2. Tensorboard support
     3. Absolute paths are required in the config (json) files
@@ -8,12 +8,15 @@
     5. Infer and save images during trainig for `save_test_out` under `datasets` in a config for quality evaluation of the intermediate checkpoints
     6. Added bash scripts for distributed training on single (`dist_train_model.sh`) and multiple (`multi_node_train_model.sh`) nodes
 
-- Instructions for distributed training:
-    1. Update `num_gpus_per_node` argument in `dist_train_model.sh`
-    2. In `dist_train_model.sh`, set `opt` to options/swinir/train_swinir_large_sr_realworld_x4_psnr_fp16.json or options/swinir/train_swinir_large_sr_realworld_x4_gan_fp16.json, for PSNR (phase1) or GAN (phase2) trainings, respectively
+## Instructions for distributed training:
+    1. Update following arguments in the `dist_train_model.sh` file:
+        * `num_gpus_per_node` argument
+        * set `opt` to either:
+          - options/swinir/train_swinir_large_sr_realworld_x4_psnr_fp16.json for PSNR (phase1) trainings or
+          - options/swinir/train_swinir_large_sr_realworld_x4_gan_fp16.json for GAN (phase2) trainings
+
     2. Launch training:
-        - For single node training, run the following cmd:
-            > bash dist_train_model.sh 1 0 127.0.0.1
+        - For single node training, run the following cmd: `bash dist_train_model.sh 1 0 127.0.0.1`
         - For multi node training:
             1. Create /job/.ssh/config file with information of all the nodes in the following format:
                 - An e.g. of 2 nodes system where ps-0 is the node from where is the training job is launched
@@ -39,10 +42,9 @@
                     StrictHostKeyChecking no
                     UserKnownHostsFile /dev/null
                   ```
-            2. Run the cmd to kick off the training
-                > bash multi_node_train_model.sh ./dist_train_model.sh
-
-
+            2. Run the cmd to kick off the training: `bash multi_node_train_model.sh ./dist_train_model.sh`
+<br/><br/>
+________
 # SwinIR: Image Restoration Using Shifted Window Transformer
 [paper](https://arxiv.org/abs/2108.10257)
 **|**
