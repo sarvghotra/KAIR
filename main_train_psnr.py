@@ -64,15 +64,18 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # update opt
     # ----------------------------------------
     # -->-->-->-->-->-->-->-->-->-->-->-->-->-
-    init_iter_G, init_path_G = option.find_last_checkpoint(opt['path']['models'], net_type='G')
-    init_iter_E, init_path_E = option.find_last_checkpoint(opt['path']['models'], net_type='E')
-    opt['path']['pretrained_netG'] = init_path_G
-    opt['path']['pretrained_netE'] = init_path_E
-    init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerG')
-    opt['path']['pretrained_optimizerG'] = init_path_optimizerG
-    init_iter_schedulerG, init_path_schedulerG = option.find_last_checkpoint(opt['path']['models'], net_type='schedulerG')
-    opt['path']['pretrained_schedulerG'] = init_path_schedulerG
-    current_step = max(init_iter_G, init_iter_E, init_iter_optimizerG, init_iter_schedulerG)
+    if opt['path']['pretrained_netG'] is None:
+        init_iter_G, init_path_G = option.find_last_checkpoint(opt['path']['models'], net_type='G')
+        init_iter_E, init_path_E = option.find_last_checkpoint(opt['path']['models'], net_type='E')
+        opt['path']['pretrained_netG'] = init_path_G
+        opt['path']['pretrained_netE'] = init_path_E
+        init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerG')
+        opt['path']['pretrained_optimizerG'] = init_path_optimizerG
+        init_iter_schedulerG, init_path_schedulerG = option.find_last_checkpoint(opt['path']['models'], net_type='schedulerG')
+        opt['path']['pretrained_schedulerG'] = init_path_schedulerG
+        current_step = max(init_iter_G, init_iter_E, init_iter_optimizerG, init_iter_schedulerG)
+    elif opt['train']['continue_training']:
+        current_step = int(os.path.basename(opt['path']['pretrained_netG']).split('_')[0])
 
     border = opt['scale']
     # --<--<--<--<--<--<--<--<--<--<--<--<--<-
@@ -95,6 +98,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
         logger_name = 'train'
         utils_logger.logger_info(logger_name, os.path.join(opt['path']['log'], logger_name+'.log'))
         logger = logging.getLogger(logger_name)
+        logger.setLevel(logging.INFO)
         logger.info(option.dict2str(opt))
         tb_path = os.path.join(opt['path']['tb_log'], opt['task'])
         tb_writer = SummaryWriter(tb_path)
