@@ -101,6 +101,10 @@ def parse(opt_path, is_train=True):
     # ----------------------------------------
     if 'find_unused_parameters' not in opt:
         opt['find_unused_parameters'] = True
+
+    if 'continue_training' not in opt:
+        opt['continue_training'] = False
+
     if 'dist' not in opt:
         opt['dist'] = False
     opt['num_gpu'] = len(opt['gpu_ids'])
