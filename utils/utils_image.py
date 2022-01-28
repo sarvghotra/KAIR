@@ -102,9 +102,14 @@ def list_files_in_dir(dir):
     return fnames
 
 def get_file_paths(root, cache_dir):
-    # if cached
-    cache_filename = "_".join(root.split('/')) + '.txt'
-    cache_file_path = os.path.join(cache_dir, cache_filename)
+    # a file will contain list of filepaths
+    if os.path.isfile(root):
+        cache_file_path = root
+    else:
+        # if cached
+        cache_filename = "_".join(root.split('/')) + '.txt'
+        cache_file_path = os.path.join(cache_dir, cache_filename)
+
     if os.path.isfile(cache_file_path):
         with open(cache_file_path, 'r', encoding='utf-8') as fi:
             filenames = fi.readlines()
