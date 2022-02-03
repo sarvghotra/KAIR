@@ -102,8 +102,8 @@ def parse(opt_path, is_train=True):
     if 'find_unused_parameters' not in opt:
         opt['find_unused_parameters'] = True
 
-    if 'continue_training' not in opt:
-        opt['continue_training'] = False
+    if 'continue_training' not in opt['train']:
+        opt['train']['continue_training'] = False
 
     if 'dist' not in opt:
         opt['dist'] = False
@@ -147,7 +147,7 @@ def parse(opt_path, is_train=True):
         opt['train']['G_param_strict'] = True
     if 'netD' in opt and 'D_param_strict' not in opt['path']:
         opt['train']['D_param_strict'] = True
-    if 'E_param_strict' not in opt['path']:
+    if 'E_param_strict' not in opt['train']:
         opt['train']['E_param_strict'] = True
 
     # ----------------------------------------
