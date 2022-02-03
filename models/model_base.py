@@ -167,15 +167,12 @@ class ModelBase():
                 state_dict_old = state_dict_old[param_key]
             state_dict = network.state_dict()
             for ((key_old, param_old),(key, param)) in zip(state_dict_old.items(), state_dict.items()):
+                # attention mask is non-learnable param, so can be created on the fly
+                if "attn_mask" in key:
+                    continue
                 state_dict[key] = param_old
-            try:
-                network.load_state_dict(state_dict, strict=True)
-            except RuntimeError as e:
-                if "size mismatch for conv_last.weight" in str(e):
-                    state_dict.pop("conv_last.weight")
-                    state_dict.pop("conv_last.bias")
-                network.load_state_dict(state_dict, strict=False)
 
+            network.load_state_dict(state_dict, strict=True)
             del state_dict_old, state_dict
 
     # ----------------------------------------
