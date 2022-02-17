@@ -35,12 +35,13 @@ def main():
     if os.path.exists(args.model_path):
         print(f'loading model from {args.model_path}')
     else:
-        os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
-        url = 'https://github.com/JingyunLiang/SwinIR/releases/download/v0.0/{}'.format(os.path.basename(args.model_path))
-        r = requests.get(url, allow_redirects=True)
-        print(f'downloading model {args.model_path}')
-        open(args.model_path, 'wb').write(r.content)
-        
+        raise FileNotFoundError(args.model_path)
+    #     os.makedirs(os.path.dirname(args.model_path), exist_ok=True)
+    #     url = 'https://github.com/JingyunLiang/SwinIR/releases/download/v0.0/{}'.format(os.path.basename(args.model_path))
+    #     r = requests.get(url, allow_redirects=True)
+    #     print(f'downloading model {args.model_path}')
+    #     open(args.model_path, 'wb').write(r.content)
+
     model = define_model(args)
     model.eval()
     model = model.to(device)
@@ -70,7 +71,12 @@ def main():
             w_pad = (w_old // window_size + 1) * window_size - w_old
             img_lq = torch.cat([img_lq, torch.flip(img_lq, [2])], 2)[:, :, :h_old + h_pad, :]
             img_lq = torch.cat([img_lq, torch.flip(img_lq, [3])], 3)[:, :, :, :w_old + w_pad]
-            output = test(img_lq, model, args, window_size)
+            try:
+                output = test(img_lq, model, args, window_size)
+            except RuntimeError:
+                print(imgname)
+                print("runtimeError")
+                continue
             output = output[..., :h_old * args.scale, :w_old * args.scale]
 
         # save image
@@ -78,7 +84,7 @@ def main():
         if output.ndim == 3:
             output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))  # CHW-RGB to HCW-BGR
         output = (output * 255.0).round().astype(np.uint8)  # float32 to uint8
-        cv2.imwrite(f'{save_dir}/{imgname}_SwinIR.png', output)
+        cv2.imwrite(f'{save_dir}/{imgname}.png', output)
 
         # evaluate psnr/ssim/psnr_b
         if img_gt is not None:
@@ -141,15 +147,18 @@ def define_model(args):
     elif args.task == 'real_sr':
         if not args.large_model:
             # use 'nearest+conv' to avoid block artifacts
-            model = net(upscale=4, in_chans=3, img_size=64, window_size=8,
+            model = net(upscale=args.scale, in_chans=3, img_size=64, window_size=8,
                         img_range=1., depths=[6, 6, 6, 6, 6, 6], embed_dim=180, num_heads=[6, 6, 6, 6, 6, 6],
                         mlp_ratio=2, upsampler='nearest+conv', resi_connection='1conv')
         else:
             # larger model size; use '3conv' to save parameters and memory; use ema for GAN training
-            model = net(upscale=4, in_chans=3, img_size=64, window_size=8,
+            upsampler = 'nearest+conv'
+            if args.scale > 1:
+                upsampler='null'
+            model = net(upscale=args.scale, in_chans=3, img_size=200, window_size=8,
                         img_range=1., depths=[6, 6, 6, 6, 6, 6, 6, 6, 6], embed_dim=240,
                         num_heads=[8, 8, 8, 8, 8, 8, 8, 8, 8],
-                        mlp_ratio=2, upsampler='nearest+conv', resi_connection='3conv')
+                        mlp_ratio=2, upsampler=upsampler, resi_connection='3conv')
         param_key_g = 'params_ema'
 
     # 004 grayscale image denoising
@@ -173,10 +182,10 @@ def define_model(args):
                     img_range=255., depths=[6, 6, 6, 6, 6, 6], embed_dim=180, num_heads=[6, 6, 6, 6, 6, 6],
                     mlp_ratio=2, upsampler='', resi_connection='1conv')
         param_key_g = 'params'
-    
+
     pretrained_model = torch.load(args.model_path)
     model.load_state_dict(pretrained_model[param_key_g] if param_key_g in pretrained_model.keys() else pretrained_model, strict=True)
-        
+
     return model
 
 
