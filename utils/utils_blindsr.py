@@ -429,7 +429,7 @@ def random_crop(lq, hq, sf=4, lq_patchsize=64):
     return lq, hq
 
 
-def degradation_bsrgan(img, sf=4, lq_patchsize=72, isp_model=None):
+def degradation_bsrgan(img, sf=4, lq_patchsize=72, isp_model=None, lq_img=None):
     """
     This is the degradation model of BSRGAN from the paper
     "Designing a Practical Degradation Model for Deep Blind Image Super-Resolution"
@@ -455,13 +455,16 @@ def degradation_bsrgan(img, sf=4, lq_patchsize=72, isp_model=None):
 
     hq = img.copy()
 
-    if sf == 4 and random.random() < scale2_prob:   # downsample1
-        if np.random.rand() < 0.5:
-            img = cv2.resize(img, (int(1/2*img.shape[1]), int(1/2*img.shape[0])), interpolation=random.choice([1,2,3]))
-        else:
-            img = util.imresize_np(img, 1/2, True)
-        img = np.clip(img, 0.0, 1.0)
-        sf = 2
+    if lq_img is None:
+        if sf == 4 and random.random() < scale2_prob:   # downsample1
+            if np.random.rand() < 0.5:
+                img = cv2.resize(img, (int(1/2*img.shape[1]), int(1/2*img.shape[0])), interpolation=random.choice([1,2,3]))
+            else:
+                img = util.imresize_np(img, 1/2, True)
+            img = np.clip(img, 0.0, 1.0)
+            sf = 2
+    else:
+        img = lq_img
 
     shuffle_order = random.sample(range(7), 7)
     idx1, idx2 = shuffle_order.index(2), shuffle_order.index(3)
@@ -613,7 +616,7 @@ if __name__ == '__main__':
     img = util.imread_uint('utils/test.png', 3)
     img = util.uint2single(img)
     sf = 4
-    
+
     for i in range(20):
         img_lq, img_hq = degradation_bsrgan(img, sf=sf, lq_patchsize=72)
         print(i)
