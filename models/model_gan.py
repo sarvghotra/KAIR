@@ -357,6 +357,12 @@ class ModelGAN(ModelBase):
             out_dict['H'] = self.H.detach()[0].float().cpu()
         return out_dict
 
+    # -----------------------------------------
+    # get lr
+    # -----------------------------------------
+    def current_learning_rate(self):
+        return {'G_lr': self.schedulers[0].get_lr()[0], 'D_lr': self.schedulers[1].get_lr()[0]}
+
     """
     # ----------------------------------------
     # Information of netG, netD and netF
