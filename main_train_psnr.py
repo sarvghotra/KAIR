@@ -216,12 +216,18 @@ def main(json_path='options/train_msrresnet_psnr.json'):
             # -------------------------------
             if current_step % opt['train']['checkpoint_print'] == 0 and opt['rank'] == 0:
                 logs = model.current_log()  # such as loss
-                message = '<epoch:{:3d}, iter:{:8,d}, lr:{:.3e}> '.format(epoch, current_step, model.current_learning_rate())
+                message = '<epoch:{:3d}, iter:{:8,d}> '.format(epoch, current_step)
                 for k, v in logs.items():  # merge log information into message
                     avg_v = sum(v)/len(v) if len(v) > 0 else v
                     message += '{:s}: {:.3e} '.format(k, avg_v)
                     tb_writer.add_scalar('Loss/train/' + k, avg_v, current_step)    # Tensorboard logging
-                    tb_writer.flush()
+
+                lr_logs = model.current_learning_rate()
+                for k, v in lr_logs.items():
+                    tb_writer.add_scalar('LR/' + k, v, current_step)    # Tensorboard logging
+                    message += '{:s}: {:.3e} '.format(k, v)
+
+                tb_writer.flush()
                 logger.info(message)
 
             # -------------------------------

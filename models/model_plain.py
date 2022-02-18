@@ -260,6 +260,12 @@ class ModelPlain(ModelBase):
             out_dict['H'] = self.H.detach().float().cpu()
         return out_dict
 
+    # -----------------------------------------
+    # get lr
+    # -----------------------------------------
+    def current_learning_rate(self):
+        return {'G_lr': self.schedulers[0].get_lr()[0]}
+
     """
     # ----------------------------------------
     # Information of netG
