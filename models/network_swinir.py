@@ -214,7 +214,6 @@ class SwinTransformerBlock(nn.Module):
         self.register_buffer("attn_mask", attn_mask)
 
     def calculate_mask(self, x_size):
-        print("------------- calculate_mask ----------------")
         # calculate attention mask for SW-MSA
         H, W = x_size
         img_mask = torch.zeros((1, H, W, 1))  # 1 H W 1
@@ -260,6 +259,7 @@ class SwinTransformerBlock(nn.Module):
         if self.input_resolution == x_size:
             attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C
         else:
+            print(self.input_resolution, " ", x_size, " ", "------------- calculate_mask ----------------")
             attn_windows = self.attn(x_windows, mask=self.calculate_mask(x_size).to(x.device))
 
         # merge windows

@@ -292,7 +292,7 @@ def define_D(opt):
 # VGGfeature, netF, F
 # --------------------------------------------
 def define_F(opt, use_bn=False):
-    device = torch.device('cuda' if opt['gpu_ids'] else 'cpu')
+    device = torch.device('cuda' if opt['num_gpu'] > 0 else 'cpu')
     from models.network_feature import VGGFeatureExtractor
     # pytorch pretrained VGG19-54, before ReLU.
     if use_bn:

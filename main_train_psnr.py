@@ -9,6 +9,7 @@ import logging
 from torch.utils.data import DataLoader
 from torch.utils.data.distributed import DistributedSampler
 import torch
+import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
 
 from utils import utils_logger
@@ -44,7 +45,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     parser.add_argument('--opt', type=str, default=json_path, help='Path to option JSON file.')
     parser.add_argument('--launcher', default='pytorch', help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
-    parser.add_argument('--dist', default=False)
+    parser.add_argument('--dist', default=True)
 
     opt = option.parse(parser.parse_args().opt, is_train=True)
     opt['dist'] = parser.parse_args().dist
@@ -55,6 +56,12 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     if opt['dist']:
         init_dist('pytorch')
     opt['rank'], opt['world_size'] = get_dist_info()
+
+    opt['num_gpu'] = 0
+    if dist.is_available() and dist.is_initialized():
+        opt['num_gpu'] = opt['world_size']
+    else:
+        opt['num_gpu'] = torch.cuda.device_count()
 
     if opt['rank'] == 0:
         util.mkdirs((path for key, path in opt['path'].items() if 'pretrained' not in key))
@@ -181,6 +188,9 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     if opt['rank'] == 0:
         logger.info(model.info_network())
         logger.info(model.info_params())
+
+    logger.info('Number of GPUs is: ' + str(opt['num_gpu']))
+    logger.info("Device count per node: " + str(torch.cuda.device_count()))
 
     '''
     # ----------------------------------------
