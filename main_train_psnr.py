@@ -189,8 +189,8 @@ def main(json_path='options/train_msrresnet_psnr.json'):
         logger.info(model.info_network())
         logger.info(model.info_params())
 
-    logger.info('Number of GPUs is: ' + str(opt['num_gpu']))
-    logger.info("Device count per node: " + str(torch.cuda.device_count()))
+        logger.info('Number of GPUs is: ' + str(opt['num_gpu']))
+        logger.info("Device count per node: " + str(torch.cuda.device_count()))
 
     '''
     # ----------------------------------------
