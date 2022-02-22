@@ -259,7 +259,8 @@ class SwinTransformerBlock(nn.Module):
         if self.input_resolution == x_size:
             attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C
         else:
-            print(self.input_resolution, " ", x_size, " ", "------------- calculate_mask ----------------")
+            if self.training:
+                print(self.input_resolution, " ", x_size, " ", "------------- calculate_mask ----------------")
             attn_windows = self.attn(x_windows, mask=self.calculate_mask(x_size).to(x.device))
 
         # merge windows
