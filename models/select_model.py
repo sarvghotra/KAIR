@@ -21,6 +21,9 @@ def define_Model(opt):
     elif model == 'gan':     # one input: L
         from models.model_gan import ModelGAN as M
 
+    elif model == 'gan_finetune':
+        from models.model_gan_finetune_lst_lyrs import ModelGAN as M
+
     else:
         raise NotImplementedError('Model [{:s}] is not defined.'.format(model))
 
