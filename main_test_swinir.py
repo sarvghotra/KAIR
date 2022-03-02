@@ -1,4 +1,6 @@
 import argparse
+
+from matplotlib import image
 import cv2
 import glob
 import numpy as np
@@ -7,8 +9,12 @@ import os
 import torch
 import requests
 
+from torch.nn.parallel import DataParallel, DistributedDataParallel
+from torch.utils.data import DataLoader
+from torch.utils.data.distributed import DistributedSampler
 from models.network_swinir import SwinIR as net
 from utils import utils_image as util
+from utils.utils_dist import init_dist
 
 
 def main():
@@ -16,6 +22,7 @@ def main():
     parser.add_argument('--task', type=str, default='color_dn', help='classical_sr, lightweight_sr, real_sr, '
                                                                      'gray_dn, color_dn, jpeg_car')
     parser.add_argument('--scale', type=int, default=1, help='scale factor: 1, 2, 3, 4, 8') # 1 for dn and jpeg car
+    parser.add_argument('--img_size', type=int, default=200, help='Patch size/image size used for calculating mask during training')
     parser.add_argument('--noise', type=int, default=15, help='noise level: 15, 25, 50')
     parser.add_argument('--jpeg', type=int, default=40, help='scale factor: 10, 20, 30, 40')
     parser.add_argument('--training_patch_size', type=int, default=128, help='patch size used in training SwinIR. '
@@ -28,6 +35,10 @@ def main():
     parser.add_argument('--folder_gt', type=str, default=None, help='input ground-truth test image folder')
     parser.add_argument('--tile', type=int, default=None, help='Tile size, None for no tile during testing (testing as a whole)')
     parser.add_argument('--tile_overlap', type=int, default=32, help='Overlapping of different tiles')
+    parser.add_argument('--cal_metrics', default=False, help="Calculate PSNR and SSIM metrics" )
+    parser.add_argument('--dist', default=True)
+    parser.add_argument('--launcher', default='pytorch', help='job launcher')
+    parser.add_argument('--local_rank', type=int, default=0)
     args = parser.parse_args()
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -42,9 +53,26 @@ def main():
     #     print(f'downloading model {args.model_path}')
     #     open(args.model_path, 'wb').write(r.content)
 
+    if args.dist:
+        init_dist('pytorch')
+
     model = define_model(args)
-    model.eval()
     model = model.to(device)
+    if args.dist:
+        model = DistributedDataParallel(model, device_ids=[torch.cuda.current_device()])
+    # else:
+    #     model = DataParallel(model)
+    model.eval()
+
+    data_set = define_data_set(args)
+    data_sampler = DistributedSampler(data_set, drop_last=False)
+    data_loader = DataLoader(data_set,
+                            batch_size=1,
+                            shuffle=False,
+                            num_workers=4,
+                            drop_last=False,
+                            pin_memory=True,
+                            sampler=data_sampler)
 
     # setup folder and path
     folder, save_dir, border, window_size = setup(args)
@@ -57,11 +85,16 @@ def main():
     test_results['psnr_b'] = []
     psnr, ssim, psnr_y, ssim_y, psnr_b = 0, 0, 0, 0, 0
 
-    for idx, path in enumerate(sorted(glob.glob(os.path.join(folder, '*')))):
+    # for idx, path in enumerate(sorted(glob.glob(os.path.join(folder, '*')))):
+    for idx, d in enumerate(data_loader):
         # read image
-        imgname, img_lq, img_gt = get_image_pair(args, path)  # image to HWC-BGR, float32
-        img_lq = np.transpose(img_lq if img_lq.shape[2] == 1 else img_lq[:, :, [2, 1, 0]], (2, 0, 1))  # HCW-BGR to CHW-RGB
-        img_lq = torch.from_numpy(img_lq).float().unsqueeze(0).to(device)  # CHW-RGB to NCHW-RGB
+        # imgname, img_lq, img_gt = get_image_pair(args, path)  # image to HWC-BGR, float32
+        # img_lq = np.transpose(img_lq if img_lq.shape[2] == 1 else img_lq[:, :, [2, 1, 0]], (2, 0, 1))  # HCW-BGR to CHW-RGB
+        # img_lq = torch.from_numpy(img_lq).float().unsqueeze(0).to(device)  # CHW-RGB to NCHW-RGB
+        #print(d)
+        imgname, img_lq, img_gt = os.path.basename(d['L_path'][0]), d['L'].to(device), d['H'].to(device)
+        imgname = os.path.splitext(imgname)[0]
+        #print(imgname); sys.exit()
 
         # inference
         with torch.no_grad():
@@ -87,8 +120,9 @@ def main():
         cv2.imwrite(f'{save_dir}/{imgname}.png', output)
 
         # evaluate psnr/ssim/psnr_b
-        if img_gt is not None:
-            img_gt = (img_gt * 255.0).round().astype(np.uint8)  # float32 to uint8
+        if img_gt is not None and args.cal_metrics:
+            img_gt = util.tensor2uint(img_gt)
+            #img_gt = (img_gt * 255.0).round().astype(np.uint8)  # float32 to uint8
             img_gt = img_gt[:h_old * args.scale, :w_old * args.scale, ...]  # crop gt
             img_gt = np.squeeze(img_gt)
 
@@ -114,7 +148,7 @@ def main():
             print('Testing {:d} {:20s}'.format(idx, imgname))
 
     # summarize psnr/ssim
-    if img_gt is not None:
+    if img_gt is not None and args.cal_metrics:
         ave_psnr = sum(test_results['psnr']) / len(test_results['psnr'])
         ave_ssim = sum(test_results['ssim']) / len(test_results['ssim'])
         print('\n{} \n-- Average PSNR/SSIM(RGB): {:.2f} dB; {:.4f}'.format(save_dir, ave_psnr, ave_ssim))
@@ -126,6 +160,18 @@ def main():
             ave_psnr_b = sum(test_results['psnr_b']) / len(test_results['psnr_b'])
             print('-- Average PSNR_B: {:.2f} dB'.format(ave_psnr_b))
 
+def define_data_set(args):
+    from data.dataset_sr import DatasetSR
+    data_opt = {
+        'scale': args.scale,
+        'n_channels': 3,
+        'H_size': None,
+        'dataroot_H': args.folder_lq, # dummy
+        'dataroot_L': args.folder_lq,
+        'phase': "test"
+    }
+    data_set = DatasetSR(data_opt)
+    return data_set
 
 def define_model(args):
     # 001 classical image sr
@@ -152,10 +198,10 @@ def define_model(args):
                         mlp_ratio=2, upsampler='nearest+conv', resi_connection='1conv')
         else:
             # larger model size; use '3conv' to save parameters and memory; use ema for GAN training
-            upsampler = 'nearest+conv'
+            upsampler='null'
             if args.scale > 1:
-                upsampler='null'
-            model = net(upscale=args.scale, in_chans=3, img_size=200, window_size=8,
+                upsampler = 'nearest+conv'
+            model = net(upscale=args.scale, in_chans=3, img_size=args.img_size, window_size=8,
                         img_range=1., depths=[6, 6, 6, 6, 6, 6, 6, 6, 6], embed_dim=240,
                         num_heads=[8, 8, 8, 8, 8, 8, 8, 8, 8],
                         mlp_ratio=2, upsampler=upsampler, resi_connection='3conv')
