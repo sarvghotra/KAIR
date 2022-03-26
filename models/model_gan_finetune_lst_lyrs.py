@@ -63,7 +63,7 @@ class ModelGAN(ModelBase):
     # ---------------------------------------
     def freeze_layers(self):
         print("============= Freezing layers ==============")
-        for name, param in self.G.named_parameters():
+        for name, param in self.netG.named_parameters():
             if not 'conv_after_body' in name:
                 param.requires_grad = False
             else:
