@@ -29,11 +29,11 @@ class DatasetBlindSR(data.Dataset):
         for data_name, d in zip(opt['dataroot_H'], train_img_files):
             # TODO
             # FIXME: Move it to config
-            if "ffhq" in data_name:
+            if "ffhq" in data_name.lower():
                 d = d[:2000]
             elif "SCUT-CTW1500" in data_name:
                 d = d[:100]
-            elif "Crawl" in data_name:
+            elif "crawl" in data_name.lower():
                 random.shuffle(d)
                 d = d[:40000]
             self.paths_H.extend(d)
@@ -138,7 +138,7 @@ class DatasetBlindSRLRHR(data.Dataset):
             if data_size is None:
                 max_imgs = len(d)
 
-            if "Crawl" in data_name:
+            if "crawl" in data_name.lower():
                 random.shuffle(d)
 
             self.paths_H.extend(d)

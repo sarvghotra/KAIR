@@ -36,7 +36,7 @@ def main():
     parser.add_argument('--tile', type=int, default=None, help='Tile size, None for no tile during testing (testing as a whole)')
     parser.add_argument('--tile_overlap', type=int, default=32, help='Overlapping of different tiles')
     parser.add_argument('--cal_metrics', default=False, help="Calculate PSNR and SSIM metrics" )
-    parser.add_argument('--dist', default=True)
+    parser.add_argument('--dist', action="store_true")
     parser.add_argument('--launcher', default='pytorch', help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
     args = parser.parse_args()

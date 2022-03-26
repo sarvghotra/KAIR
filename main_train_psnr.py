@@ -19,7 +19,7 @@ from utils.utils_dist import get_dist_info, init_dist
 
 from data.select_dataset import define_Dataset
 from models.select_model import define_Model
-
+from torch.distributed.elastic.multiprocessing.errors import record
 
 '''
 # --------------------------------------------
@@ -32,7 +32,7 @@ from models.select_model import define_Model
 # --------------------------------------------
 '''
 
-
+# @record
 def main(json_path='options/train_msrresnet_psnr.json'):
 
     '''
@@ -46,9 +46,11 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     parser.add_argument('--launcher', default='pytorch', help='job launcher')
     parser.add_argument('--local_rank', type=int, default=0)
     parser.add_argument('--dist', default=True)
+    parser.add_argument('--resume_crashed_training', action='store_true')
 
     opt = option.parse(parser.parse_args().opt, is_train=True)
     opt['dist'] = parser.parse_args().dist
+    opt['resume_crashed_training'] = parser.parse_args().resume_crashed_training
 
     # ----------------------------------------
     # distributed settings
@@ -71,15 +73,23 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     # update opt
     # ----------------------------------------
     # -->-->-->-->-->-->-->-->-->-->-->-->-->-
-    if opt['path']['pretrained_netG'] is None:
+    if opt['path']['pretrained_netG'] is None or opt['resume_crashed_training']:
         init_iter_G, init_path_G = option.find_last_checkpoint(opt['path']['models'], net_type='G')
         init_iter_E, init_path_E = option.find_last_checkpoint(opt['path']['models'], net_type='E')
+        init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerG')
+        init_iter_schedulerG, init_path_schedulerG = option.find_last_checkpoint(opt['path']['models'], net_type='schedulerG')
+
         opt['path']['pretrained_netG'] = init_path_G
         opt['path']['pretrained_netE'] = init_path_E
-        init_iter_optimizerG, init_path_optimizerG = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerG')
         opt['path']['pretrained_optimizerG'] = init_path_optimizerG
-        init_iter_schedulerG, init_path_schedulerG = option.find_last_checkpoint(opt['path']['models'], net_type='schedulerG')
         opt['path']['pretrained_schedulerG'] = init_path_schedulerG
+
+        if "gan" in opt['model']:
+            init_iter_D, init_path_D = option.find_last_checkpoint(opt['path']['models'], net_type='D')
+            init_iter_optimizerD, init_path_optimizerD = option.find_last_checkpoint(opt['path']['models'], net_type='optimizerD')
+            opt['path']['pretrained_netD'] = init_path_D
+            opt['path']['pretrained_optimizerD'] = init_path_optimizerD
+
         current_step = max(init_iter_G, init_iter_E, init_iter_optimizerG, init_iter_schedulerG)
     elif opt['train']['continue_training']:
         current_step = int(os.path.basename(opt['path']['pretrained_netG']).split('_')[0])
@@ -186,8 +196,8 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     model = define_Model(opt)
     model.init_train()
     if opt['rank'] == 0:
-        logger.info(model.info_network())
-        logger.info(model.info_params())
+        # logger.info(model.info_network())
+        # logger.info(model.info_params())
 
         logger.info('Number of GPUs is: ' + str(opt['num_gpu']))
         logger.info("Device count per node: " + str(torch.cuda.device_count()))
