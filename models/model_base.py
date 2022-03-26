@@ -1,4 +1,5 @@
 import os
+import logging
 import torch
 import torch.nn as nn
 from utils.utils_bnorm import merge_bn, tidy_sequential
@@ -12,6 +13,8 @@ class ModelBase():
         self.device = torch.device('cuda' if opt['num_gpu'] > 0 else 'cpu')
         self.is_train = opt['is_train']        # training or not
         self.schedulers = []                   # schedulers
+        if self.opt['rank'] == 0:
+            self.logger = logging.getLogger("train")
 
     """
     # ----------------------------------------
