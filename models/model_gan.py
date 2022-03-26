@@ -62,21 +62,21 @@ class ModelGAN(ModelBase):
     def load(self):
         load_path_G = self.opt['path']['pretrained_netG']
         if load_path_G is not None:
-            print('Loading model for G [{:s}] ...'.format(load_path_G))
+            self.log_rank_0('Loading model for G [{:s}] ...'.format(load_path_G))
             self.load_network(load_path_G, self.netG, strict=self.opt_train['G_param_strict'])
         load_path_E = self.opt['path']['pretrained_netE']
         if self.opt_train['E_decay'] > 0:
             if load_path_E is not None:
-                print('Loading model for E [{:s}] ...'.format(load_path_E))
+                self.log_rank_0('Loading model for E [{:s}] ...'.format(load_path_E))
                 self.load_network(load_path_E, self.netE, strict=self.opt_train['E_param_strict'])
             else:
-                print('Copying model for E')
+                self.log_rank_0('Copying model for E')
                 self.update_E(0)
             self.netE.eval()
 
         load_path_D = self.opt['path']['pretrained_netD']
         if self.opt['is_train'] and load_path_D is not None:
-            print('Loading model for D [{:s}] ...'.format(load_path_D))
+            self.log_rank_0('Loading model for D [{:s}] ...'.format(load_path_D))
             self.load_network(load_path_D, self.netD, strict=self.opt_train['D_param_strict'])
 
     # ----------------------------------------
@@ -85,11 +85,11 @@ class ModelGAN(ModelBase):
     def load_optimizers(self):
         load_path_optimizerG = self.opt['path']['pretrained_optimizerG']
         if load_path_optimizerG is not None and self.opt_train['G_optimizer_reuse']:
-            print('Loading optimizerG [{:s}] ...'.format(load_path_optimizerG))
+            self.log_rank_0('Loading optimizerG [{:s}] ...'.format(load_path_optimizerG))
             self.load_optimizer(load_path_optimizerG, self.G_optimizer)
         load_path_optimizerD = self.opt['path']['pretrained_optimizerD']
         if load_path_optimizerD is not None and self.opt_train['D_optimizer_reuse']:
-            print('Loading optimizerD [{:s}] ...'.format(load_path_optimizerD))
+            self.log_rank_0('Loading optimizerD [{:s}] ...'.format(load_path_optimizerD))
             self.load_optimizer(load_path_optimizerD, self.D_optimizer)
 
     # ----------------------------------------
@@ -172,7 +172,7 @@ class ModelGAN(ModelBase):
             if v.requires_grad:
                 G_optim_params.append(v)
             else:
-                print('Params [{:s}] will not optimize.'.format(k))
+                self.log_rank_0('Params [{:s}] will not optimize.'.format(k))
 
         self.G_optimizer = Adam(G_optim_params, lr=self.opt_train['G_optimizer_lr'], weight_decay=0)
         self.D_optimizer = Adam(self.netD.parameters(), lr=self.opt_train['D_optimizer_lr'], weight_decay=0)

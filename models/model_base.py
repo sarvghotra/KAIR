@@ -224,3 +224,10 @@ class ModelBase():
     def merge_bnorm_test(self):
         merge_bn(self.netG)
         tidy_sequential(self.netG)
+
+    # ----------------------------------------
+    # Util function for logging when rank 0
+    # ----------------------------------------
+    def log_rank_0(self, msg):
+        if self.opt['rank'] == 0:
+            self.logger.info(msg)

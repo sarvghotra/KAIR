@@ -1,5 +1,7 @@
 from collections import OrderedDict
 import copy
+from distutils.log import error
+import logging
 import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
@@ -23,6 +25,9 @@ class ModelPlain(ModelBase):
         # define network
         # ------------------------------------
         self.opt_train = self.opt['train']    # training option
+        if self.opt['rank'] == 0:
+            self.logger = logging.getLogger("train")
+
         self.netG = define_G(opt)
         self.netG = self.model_to_device(self.netG)
         if self.opt_train['E_decay'] > 0:
@@ -63,15 +68,18 @@ class ModelPlain(ModelBase):
     def load(self):
         load_path_G = self.opt['path']['pretrained_netG']
         if load_path_G is not None:
-            print('Loading model for G [{:s}] ...'.format(load_path_G))
+            if self.opt['rank'] == 0:
+                self.logger.info('Loading model for G [{:s}] ...'.format(load_path_G))
             self.load_network(load_path_G, self.netG, strict=self.opt_train['G_param_strict'], param_key='params')
         load_path_E = self.opt['path']['pretrained_netE']
         if self.opt_train['E_decay'] > 0:
             if load_path_E is not None:
-                print('Loading model for E [{:s}] ...'.format(load_path_E))
+                if self.opt['rank'] == 0:
+                    self.logger.info('Loading model for E [{:s}] ...'.format(load_path_E))
                 self.load_network(load_path_E, self.netE, strict=self.opt_train['E_param_strict'], param_key='params_ema')
             else:
-                print('Copying model for E ...')
+                if self.opt['rank'] == 0:
+                    self.logger.info('Copying model for E ...')
                 self.update_E(0)
             self.netE.eval()
 
@@ -81,8 +89,12 @@ class ModelPlain(ModelBase):
     def load_optimizers(self):
         load_path_optimizerG = self.opt['path']['pretrained_optimizerG']
         if load_path_optimizerG is not None and self.opt_train['G_optimizer_reuse']:
-            print('Loading optimizerG [{:s}] ...'.format(load_path_optimizerG))
+            if self.opt['rank'] == 0:
+                self.logger.info('Loading optimizerG [{:s}] ...'.format(load_path_optimizerG))
             self.load_optimizer(load_path_optimizerG, self.G_optimizer)
+
+        elif self.opt['rank'] == 0:
+            self.logger.info('W: OptimizerG not loaded')
 
     # ----------------------------------------
     # load scheduler
@@ -90,8 +102,11 @@ class ModelPlain(ModelBase):
     def load_schedulers(self):
         load_path_schedulerG = self.opt['path']['pretrained_schedulerG']
         if load_path_schedulerG is not None and self.opt_train['G_scheduler_reuse']:
-            print('Loading schedulerG [{:s}] ...'.format(load_path_schedulerG))
+            if self.opt['rank'] == 0:
+                self.logger.info('Loading schedulerG [{:s}] ...'.format(load_path_schedulerG))
             self.load_scheduler(load_path_schedulerG, self.schedulers[0])
+        elif self.opt['rank'] == 0:
+            self.logger.info('W: SchedulerG not loaded')
 
     # ----------------------------------------
     # save model / optimizer(optional)
@@ -134,7 +149,8 @@ class ModelPlain(ModelBase):
             if v.requires_grad:
                 G_optim_params.append(v)
             else:
-                print('Params [{:s}] will not optimize.'.format(k))
+                if self.opt['rank'] == 0:
+                    self.logger.info('Params [{:s}] will not optimize.'.format(k))
         self.G_optimizer = Adam(G_optim_params, lr=self.opt_train['G_optimizer_lr'], weight_decay=0)
 
     # ----------------------------------------

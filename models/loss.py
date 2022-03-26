@@ -32,7 +32,7 @@ Sequential(
       (22): ReLU(inplace)
       (23): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
       (24): ReLU(inplace)
-      (25*): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)) 
+      (25*): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
       (26): ReLU(inplace)
       (27): MaxPool2d(kernel_size=2, stride=2, padding=0, dilation=1, ceil_mode=False)
       (28): Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
@@ -75,7 +75,7 @@ class VGGFeatureExtractor(nn.Module):
         else:
             self.features = nn.Sequential(*list(model.features.children())[:(feature_layer + 1)])
 
-        print(self.features)
+        # print(self.features)
 
         # No need to BP to variable
         for k, v in self.features.named_parameters():
@@ -109,7 +109,7 @@ class PerceptualLoss(nn.Module):
             self.lossfn = nn.L1Loss()
         else:
             self.lossfn = nn.MSELoss()
-        print(f'feature_layer: {feature_layer}  with weights: {weights}')
+        # print(f'feature_layer: {feature_layer}  with weights: {weights}')
 
     def forward(self, x, gt):
         """Forward function.
