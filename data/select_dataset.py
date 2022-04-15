@@ -44,6 +44,9 @@ def define_Dataset(dataset_opt):
     elif dataset_type in ['usrnet', 'usrgan']:
         from data.dataset_usrnet import DatasetUSRNet as D
 
+    elif dataset_type == 'slblindsr':
+        from data.dataset_blindsr import DatasetSLBlindSR as D
+
     elif dataset_type == 'blindsrlrhr':
         from data.dataset_blindsr import DatasetBlindSRLRHR as D
 
