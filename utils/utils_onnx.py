@@ -55,22 +55,22 @@ def main():
 
     # setup folder and path
     folder, save_dir, border, window_size = setup(args)
-    onnx_out_file = os.path.join(save_dir, "v3_ckpt_org_stp2_300k.onnx")
-    os.makedirs(save_dir, exist_ok=True)
-    test_results = OrderedDict()
-    test_results['psnr'] = []
-    test_results['ssim'] = []
-    test_results['psnr_y'] = []
-    test_results['ssim_y'] = []
-    test_results['psnr_b'] = []
-    psnr, ssim, psnr_y, ssim_y, psnr_b = 0, 0, 0, 0, 0
+    save_dir += "/rand"
+    onnx_out_file = os.path.join(save_dir, "v3_ckpt_org_stp2_300k_rand.onnx")
+    os.makedirs(save_dir, exist_ok=False)
+    # test_results = OrderedDict()
+    # test_results['psnr'] = []
+    # test_results['ssim'] = []
+    # test_results['psnr_y'] = []
+    # test_results['ssim_y'] = []
+    # test_results['psnr_b'] = []
+    # psnr, ssim, psnr_y, ssim_y, psnr_b = 0, 0, 0, 0, 0
 
     for idx, path in enumerate(sorted(glob.glob(os.path.join(folder, '*')))):
         # read image
         imgname, img_lq, img_gt = get_image_pair(args, path)  # image to HWC-BGR, float32
         img_lq = np.transpose(img_lq if img_lq.shape[2] == 1 else img_lq[:, :, [2, 1, 0]], (2, 0, 1))  # HCW-BGR to CHW-RGB
         img_lq = torch.from_numpy(img_lq).float().unsqueeze(0).to(device)  # CHW-RGB to NCHW-RGB
-
 
         # import onnxruntime as ort
         # def to_numpy(tensor):
@@ -91,8 +91,6 @@ def main():
         # cv2.imwrite(f'{"/tmp/onnx_out"}/{imgname}_onnxruntime.png', output)
         # print("saved")
         # continue
-        # import sys
-        # sys.exit()
 
 
         # inference
@@ -477,7 +475,11 @@ class SwinTransformerBlock(nn.Module):
         # if self.input_resolution == x_size:
         #     attn_windows = self.attn(x_windows, mask=self.attn_mask)  # nW*B, window_size*window_size, C
         # else:
-        attn_windows = self.attn(x_windows, mask=self.calculate_mask(x_size).to(x.device))
+        if self.shift_size > 0:
+            mask = self.calculate_mask(x_size).to(x.device)
+        else:
+            mask = None
+        attn_windows = self.attn(x_windows, mask=mask)
 
         # merge windows
         attn_windows = attn_windows.view(-1, self.window_size, self.window_size, C)
