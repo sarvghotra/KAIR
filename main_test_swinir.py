@@ -31,6 +31,7 @@ def main():
     parser.add_argument('--large_model', action='store_true', help='use large model, only provided for real image sr')
     parser.add_argument('--model_path', type=str,
                         default='model_zoo/swinir/001_classicalSR_DIV2K_s48w8_SwinIR-M_x2.pth')
+    parser.add_argument('--output_dir', type=str, default=None, help='dir path for saving output images')
     parser.add_argument('--folder_lq', type=str, default=None, help='input low-quality test image folder')
     parser.add_argument('--folder_gt', type=str, default=None, help='input ground-truth test image folder')
     parser.add_argument('--tile', type=int, default=None, help='Tile size, None for no tile during testing (testing as a whole)')
@@ -238,30 +239,28 @@ def define_model(args):
 def setup(args):
     # 001 classical image sr/ 002 lightweight image sr
     if args.task in ['classical_sr', 'lightweight_sr']:
-        save_dir = f'results/swinir_{args.task}_x{args.scale}'
+        save_dir = f'{args.output_dir}/swinir_{args.task}_x{args.scale}'
         folder = args.folder_gt
         border = args.scale
         window_size = 8
 
     # 003 real-world image sr
     elif args.task in ['real_sr']:
-        save_dir = f'results/swinir_{args.task}_x{args.scale}'
-        if args.large_model:
-            save_dir += '_large'
+        save_dir = args.output_dir
         folder = args.folder_lq
         border = 0
         window_size = 8
 
     # 004 grayscale image denoising/ 005 color image denoising
     elif args.task in ['gray_dn', 'color_dn']:
-        save_dir = f'results/swinir_{args.task}_noise{args.noise}'
+        save_dir = f'{args.output_dir}/swinir_{args.task}_noise{args.noise}'
         folder = args.folder_gt
         border = 0
         window_size = 8
 
     # 006 JPEG compression artifact reduction
     elif args.task in ['jpeg_car']:
-        save_dir = f'results/swinir_{args.task}_jpeg{args.jpeg}'
+        save_dir = f'{args.output_dir}/swinir_{args.task}_jpeg{args.jpeg}'
         folder = args.folder_gt
         border = 0
         window_size = 7
