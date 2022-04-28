@@ -5,6 +5,7 @@ import cv2
 import glob
 import numpy as np
 from collections import OrderedDict
+from PIL import Image
 import os
 import torch
 import requests
@@ -95,6 +96,11 @@ def main():
         #print(d)
         imgname, img_lq, img_gt = os.path.basename(d['L_path'][0]), d['L'].to(device), d['H'].to(device)
         imgname = os.path.splitext(imgname)[0]
+
+        orig_input_img = d['orig_L'][0]
+        channel = 3
+        if len(orig_input_img.shape) == 3 and orig_input_img.shape[2] == 4:
+            channel = 4
         #print(imgname); sys.exit()
 
         # inference
@@ -117,7 +123,13 @@ def main():
         output = output.data.squeeze().float().cpu().clamp_(0, 1).numpy()
         if output.ndim == 3:
             output = np.transpose(output[[2, 1, 0], :, :], (1, 2, 0))  # CHW-RGB to HCW-BGR
-        output = (output * 255.0).round().astype(np.uint8)  # float32 to uint8
+
+        output = (output * 255.0).round()
+        if channel == 4:
+            orig_input_img = orig_input_img.numpy()
+            output = combine_img_rgba(orig_input_img, output)
+
+        output = output.astype(np.uint8)  # float32 to uint8
         cv2.imwrite(f'{save_dir}/{imgname}.png', output)
 
         # evaluate psnr/ssim/psnr_b
@@ -169,7 +181,8 @@ def define_data_set(args):
         'H_size': None,
         'dataroot_H': args.folder_lq, # dummy
         'dataroot_L': args.folder_lq,
-        'phase': "test"
+        'phase': "test",
+        'return_orig_img': True
     }
     data_set = DatasetSR(data_opt)
     return data_set
