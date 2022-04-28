@@ -21,6 +21,7 @@ class DatasetSR(data.Dataset):
         self.sf = opt['scale'] if opt['scale'] else 4
         self.patch_size = self.opt['H_size'] if self.opt['H_size'] else 96
         self.L_size = self.patch_size // self.sf
+        self.return_orig = opt['return_orig_img'] if opt['return_orig_img'] is not None else False
 
         # ------------------------------------
         # get paths of L/H
@@ -55,7 +56,10 @@ class DatasetSR(data.Dataset):
             # directly load L image
             # --------------------------------
             L_path = self.paths_L[index]
-            img_L = util.imread_uint(L_path, self.n_channels)
+            if self.return_orig:
+                img_L, orig_L = util.imread_uint(L_path, self.n_channels, return_orig=self.return_orig)
+            else:
+                img_L = util.imread_uint(L_path, self.n_channels, return_orig=self.return_orig)
             img_L = util.uint2single(img_L)
 
         else:
@@ -99,7 +103,10 @@ class DatasetSR(data.Dataset):
         if L_path is None:
             L_path = H_path
 
-        return {'L': img_L, 'H': img_H, 'L_path': L_path, 'H_path': H_path}
+        if self.return_orig:
+            return {'L': img_L, 'H': img_H, 'L_path': L_path, 'H_path': H_path, 'orig_L': orig_L}
+        else:
+            return {'L': img_L, 'H': img_H, 'L_path': L_path, 'H_path': H_path}
 
     def __len__(self):
         return len(self.paths_H)

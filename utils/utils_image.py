@@ -1,3 +1,4 @@
+from logging import raiseExceptions
 import os
 import math
 import random
@@ -240,19 +241,26 @@ def mkdir_and_rename(path):
 # --------------------------------------------
 # get uint8 image of size HxWxn_channles (RGB)
 # --------------------------------------------
-def imread_uint(path, n_channels=3):
+def imread_uint(path, n_channels=3, return_orig=False):
     #  input: path
     # output: HxWx3(RGB or GGG), or HxWx1 (G)
     if n_channels == 1:
-        img = cv2.imread(path, 0)  # cv2.IMREAD_GRAYSCALE
-        img = np.expand_dims(img, axis=2)  # HxWx1
+        orig_img = cv2.imread(path, 0)  # cv2.IMREAD_GRAYSCALE
+        img = np.expand_dims(orig_img, axis=2)  # HxWx1
     elif n_channels == 3:
-        img = cv2.imread(path, cv2.IMREAD_UNCHANGED)  # BGR or G
-        if img.ndim == 2:
-            img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)  # GGG
-        else:
-            img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)  # RGB
-    return img
+        orig_img = cv2.imread(path, cv2.IMREAD_UNCHANGED)  # BGR or G
+        try:
+            if orig_img.ndim == 2:
+                img = cv2.cvtColor(orig_img, cv2.COLOR_GRAY2RGB)  # GGG
+            else:
+                img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB)  # RGB
+        except AttributeError as e:
+            print("=========== \n", path, "\n =================")
+            raise e
+    if return_orig:
+        return img, orig_img
+    else:
+        return img
 
 
 # --------------------------------------------
