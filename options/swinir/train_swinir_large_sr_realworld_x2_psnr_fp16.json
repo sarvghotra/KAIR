@@ -1,0 +1,119 @@
+{
+    "task": "x2_org_stp_psnr"     // name of the experiment
+    , "model": "plain" // "plain" | "plain2" if two inputs
+    , "dist": true
+    , "find_unused_parameters": false
+
+    , "scale": 2       // broadcast to "datasets"
+    , "n_channels": 3  // broadcast to "datasets", 1 for grayscale, 3 for color
+
+    , "path": {
+      "root": "/vc_data_1/users/saghotra/models/deep_enhance/swinIR/x2/tmp/"            // some output dir to save training outputs like checkpoints
+      , "pretrained_netG": null      // path of pretrained model
+      , "pretrained_netE": null      // path of pretrained model
+      , "pretrained_schedulerG": null
+      , "pretrained_optimizerG": null
+      , "tb_log": "/vc_data_1/users/saghotra/models/deep_enhance/swinIR/x2/tb_logs"
+    }
+
+    , "datasets": {
+      "train": {
+        "name": "train_dataset"           // just name
+        , "dataset_type": "blindsr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+        , "dataroot_H": ["/sr_img_data/users/saghotra/datasets/img/train/Flickr2K/Flickr2K_HR/", "/sr_img_data/users/saghotra/datasets/img/train/DIV2K/DIV2K_train_HR", "/sr_img_data/users/saghotra/datasets/img/train/OST_dataset/001/OutdoorSceneTrain_v2/", "/sr_img_data/users/saghotra/datasets/img/train/SCUT-CTW1500/train_images", "/sr_img_data/users/saghotra/datasets/img/train/exploration_database_and_code/pristine_images", "/vc_data_blob/users/qiangliu/TISR/FFHQ/HR"] // path of H training dataset. DIV2K (800 training images) + Flickr2K (2650 images) + + OST (10324 images)
+        , "dataroot_L": null            // path of L training dataset
+        , "cache_dir": "/vc_data_1/users/saghotra/models/deep_enhance/cache"    // saves or reads train filenames in a file in this dir
+        , "degradation_type": "bsrgan"    // "bsrgan" | "bsrgan_plus"
+        , "H_size": 288                   // patch_size 256 | 288 | 320
+        , "shuffle_prob": 0.1             //
+        , "lq_patchsize": 128
+        , "use_sharp": true
+
+        , "dataloader_shuffle": true
+        , "dataloader_num_workers": 720
+        , "dataloader_batch_size": 196      // batch size 1 | 16 | 32 | 48 | 64 | 128. Total batch size =4x8=32 in SwinIR
+      }
+      , "test": {
+        "name": "realsr_plus_5imgs"            // just name
+        , "dataset_type": "blindsr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+        , "dataroot_H": ["/sr_img_data/users/saghotra/datasets/img/benchmark/RealSRSet+5images"]  // path of H testing dataset
+        , "dataroot_L": null              // path of L testing dataset
+        , "cache_dir": "/vc_data_1/users/saghotra/models/deep_enhance/cache"    // saves or reads train filenames in a file in this dir
+
+        , "degradation_type": "bsrgan"    // "bsrgan" | "bsrgan_plus"
+        , "H_size": 256                   // patch_size 256 | 288 | 320
+        , "shuffle_prob": 0.1             //
+        , "lq_patchsize": 128
+        , "use_sharp": false
+      }
+
+      , "test2": {
+        "name": "crawl_val_50"            // just name
+        , "dataset_type": "blindsr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+        , "dataroot_H": ["/vc_data_blob/users/saghotra/datasets/img/benchmark/craw_1024/HR/val_50"]  // path of H testing dataset
+        , "dataroot_L": ["/vc_data_blob/users/saghotra/datasets/img/benchmark/craw_1024/HR/val_50"]              // path of L testing dataset
+        , "cache_dir": "/vc_data_1/users/saghotra/models/deep_enhance/cache"    // saves or reads train filenames in a file in this dir
+        , "degradation_type": "bsrgan"    // "bsrgan" | "bsrgan_plus"
+        , "H_size":256                  // patch_size 256 | 288 | 320
+        , "shuffle_prob": 0.1             //
+        , "lq_patchsize": 128
+        , "use_sharp": false
+        , "data_sizes": [null] //, 200, 100, 1000, 5000]    // null is for full data size
+        , "max_actual_data_size": [null] //, 200, 100, 1000, 5000]    // null is for full data size
+      }
+
+     , "save_test_out": {
+        "name": "manual_test_dataset"            // just name
+        , "dataset_type": "sr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+        , "dataroot_H": "/sr_img_data/users/saghotra/datasets/img/benchmark/x1_test_set_manual_subset"  // path of H testing dataset
+        , "dataroot_L": "/sr_img_data/users/saghotra/datasets/img/benchmark/x1_test_set_manual_subset"              // path of L testing dataset
+
+      }
+    }
+
+    , "netG": {
+        "net_type": "swinir"
+        , "upscale": 2
+        , "in_chans": 3
+        , "img_size": 128
+        , "window_size": 8
+        , "img_range": 1.0
+        , "depths": [6, 6, 6, 6, 6, 6, 6, 6, 6]
+        , "embed_dim": 240
+        , "num_heads": [8, 8, 8, 8, 8, 8, 8, 8, 8]
+        , "mlp_ratio": 2
+        , "upsampler": "nearest+conv"        // "pixelshuffle" | "pixelshuffledirect" | "nearest+conv" | null
+        , "resi_connection": "3conv"        // "1conv" | "3conv"
+
+        , "init_type": "default"
+    }
+
+    , "train": {
+      "G_lossfn_type": "l1"               // "l1" preferred | "l2sum" | "l2" | "ssim" | "charbonnier"
+      , "G_lossfn_weight": 1.0            // default
+
+      , "E_decay": 0.999                  // Exponential Moving Average for netG: set 0 to disable; default setting 0.999
+      , "fp16": true
+
+      , "G_optimizer_type": "adam"        // fixed, adam is enough
+      , "G_optimizer_lr": 2e-4            // learning rate
+      , "G_optimizer_wd": 0               // weight decay, default 0
+      , "G_optimizer_clipgrad": null      // unused
+      , "G_optimizer_reuse": true         //
+
+      , "G_scheduler_type": "MultiStepLR" // "MultiStepLR" is enough
+      , "G_scheduler_milestones": [500000, 800000, 900000, 950000, 1000000]
+      , "G_scheduler_gamma": 0.5
+      , "G_scheduler_reuse": true         //
+
+      , "G_regularizer_orthstep": null    // unused
+      , "G_regularizer_clipstep": null    // unused
+
+      , "G_param_strict": true
+      , "E_param_strict": true
+
+      , "checkpoint_test": 50000           // for testing
+      , "checkpoint_save": 50000          // for saving model
+      , "checkpoint_print": 500           // for print
+    }
+  }

@@ -6,18 +6,18 @@
     3. Absolute paths are required in the config (json) files
     4. Added bash scripts for distributed training on single and multiple nodes
     5. Infer and save images during trainig for `save_test_out` under `datasets` in a config for quality evaluation of the intermediate checkpoints
-    6. Added bash scripts for distributed training on single (`dist_train_model.sh`) and multiple (`multi_node_train_model.sh`) nodes
+    6. Added bash scripts for distributed training on single (`bash_util_scripts/train_swinIR_dist.sh`) and multiple (`bash_util_scripts/train_swinIR_dist_multinode.sh`) nodes
 
 ## Instructions for distributed training:
-    1. Update following arguments in the `dist_train_model.sh` file:
+    1. Update following arguments in the `bash_util_scripts/train_swinIR_dist.sh` file:
         * `num_gpus_per_node` argument
         * set `opt` to either:
-          - options/swinir/train_swinir_large_sr_realworld_x4_psnr_fp16.json for PSNR (phase1) trainings or
-          - options/swinir/train_swinir_large_sr_realworld_x4_gan_fp16.json for GAN (phase2) trainings
+          - options/swinir/train_swinir_large_sr_realworld_x2_psnr_fp16.json for PSNR (phase1) trainings or
+          - options/swinir/train_swinir_large_sr_realworld_x2_gan_fp16.json for GAN (phase2) trainings
 
     2. Launch training:
-        - For single node training, run the following cmd: `bash dist_train_model.sh 1 0 127.0.0.1`
-        - For multi node training:
+        - For single node training, run the following cmd: `bash train_swinIR_dist.sh 1 0 127.0.0.1`
+        - For multi node training on Nvidia GPUs:
             1. Create /job/.ssh/config file with information of all the nodes in the following format:
                 - An e.g. of 2 nodes system where ps-0 is the node from where is the training job is launched
                   ```
@@ -42,7 +42,9 @@
                     StrictHostKeyChecking no
                     UserKnownHostsFile /dev/null
                   ```
-            2. Run the cmd to kick off the training: `bash multi_node_train_model.sh ./dist_train_model.sh`
+            2. Run the cmd to kick off the training: `bash train_swinIR_dist_multinode.sh /home/saghotra/git/KAIR/bash_util_scripts/train_swinIR_dist.sh /tmp`
+              - You can see errors in /tmp/DistributedJobLogs
+      - For multinode training on AMD, use _AMD versions of the bash script after running `create_hostfile_AMD.sh`
 <br/><br/>
 ________
 # SwinIR: Image Restoration Using Shifted Window Transformer

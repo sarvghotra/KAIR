@@ -1,0 +1,144 @@
+{
+    "task": "x2_org_stp_gan"     // name of the experiment
+    , "model": "gan" // "plain" | "plain2" if two inputs
+    , "dist": true
+    , "find_unused_parameters": false
+
+    , "scale": 2       // broadcast to "datasets"
+    , "n_channels": 3  // broadcast to "datasets", 1 for grayscale, 3 for color
+
+    , "path": {
+      "root": "/vc_data_1/users/saghotra/models/deep_enhance/swinIR/x2/tmp/ph2/"            // some output dir to save training outputs like checkpoints
+      , "pretrained_netG": "/vc_data_1/users/saghotra/models/deep_enhance/swinIR/x2/tmp/x2_org_stp_psnr/models/950000_G.pth"      // path of pretrained model
+      , "pretrained_netD": null    // path of pretrained model
+      , "pretrained_netE": "/vc_data_1/users/saghotra/models/deep_enhance/swinIR/x2/tmp/x2_org_stp_psnr/models/950000_E.pth"      // path of pretrained model
+      , "pretrained_schedulerG": null
+      , "pretrained_optimizerG": null
+      , "tb_log": "/vc_data_1/users/saghotra/models/deep_enhance/swinIR/x2/tb_logs"
+    }
+
+    , "datasets": {
+        "train": {
+            "name": "train_dataset"           // just name
+              // , "dataset_type": "blindsrlrhr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+              , "dataset_type": "blindsr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+              // "debug is for try/except to catch a faulty img"
+              , "dataroot_H": ["/sr_img_data/users/saghotra/datasets/img/train/Flickr2K/Flickr2K_HR/",
+                "/sr_img_data/users/saghotra/datasets/img/train/DIV2K/DIV2K_train_HR",
+                "/sr_img_data/users/saghotra/datasets/img/train/OST_dataset/001/OutdoorSceneTrain_v2/",
+                "/sr_img_data/users/saghotra/datasets/img/train/SCUT-CTW1500/train_images",
+                "/sr_img_data/users/saghotra/datasets/img/train/exploration_database_and_code/pristine_images",
+                "/vc_data_blob/users/qiangliu/TISR/FFHQ/HR",
+                "/vc_data_blob/users/qiangliu/TISR/Crawl/HR"
+              ]
+
+              , "dataroot_L": null
+              , "cache_dir": "/vc_data_1/users/saghotra/models/deep_enhance/cache"    // saves or reads train filenames in a file in this dir
+              , "degradation_type": "bsrgan"    // "bsrgan" | "bsrgan_plus"
+              , "H_size": 256                   // patch_size 256 | 288 | 320
+              , "shuffle_prob": 0.1             //
+              , "lq_patchsize": 128
+              , "use_sharp": true
+
+              , "dataloader_shuffle": true
+              , "dataloader_num_workers": 720
+              , "dataloader_batch_size": 196      // batch size 1 | 16 | 32 | 48 | 64 | 128. Total batch size =4x8=32 in SwinIR
+        }
+      , "test1": {
+            "name": "realsr_plus_5imgs"            // just name
+            , "dataset_type": "blindsr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+            , "dataroot_H": ["/sr_img_data/users/saghotra/datasets/img/benchmark/RealSRSet+5images"]  // path of H testing dataset
+            , "dataroot_L": null              // path of L testing dataset
+            , "cache_dir": "/vc_data_1/users/saghotra/models/deep_enhance/cache"    // saves or reads train filenames in a file in this dir
+
+            , "degradation_type": "bsrgan"    // "bsrgan" | "bsrgan_plus"
+            , "H_size":256                  // patch_size 256 | 288 | 320
+            , "shuffle_prob": 0.1             //
+            , "lq_patchsize": 128
+            , "use_sharp": false
+      }
+
+      , "save_infer_out": {
+            "name": "manual_test_dataset"            // just name
+            , "dataset_type": "sr"         // "dncnn" | "dnpatch" | "fdncnn" | "ffdnet" | "sr" | "srmd" | "dpsr" | "plain" | "plainpatch" | "jpeg"
+            , "dataroot_H": "/sr_img_data/users/saghotra/datasets/img/benchmark/x1_test_set_manual_subset"  // path of H testing dataset
+            , "dataroot_L": "/sr_img_data/users/saghotra/datasets/img/benchmark/x1_test_set_manual_subset"              // path of L testing dataset
+
+      }
+    }
+
+    , "netG": {
+        "net_type": "swinir"
+        , "upscale": 2
+        , "in_chans": 3
+        , "img_size": 128
+        , "window_size": 8
+        , "img_range": 1.0
+        , "depths": [6, 6, 6, 6, 6, 6, 6, 6, 6]
+        , "embed_dim": 240
+        , "num_heads": [8, 8, 8, 8, 8, 8, 8, 8, 8]
+        , "mlp_ratio": 2
+        , "upsampler": "nearest+conv"        // "pixelshuffle" | "pixelshuffledirect" | "nearest+conv" | null
+        , "resi_connection": "3conv"        // "1conv" | "3conv"
+
+        , "init_type": "default"
+    }
+
+    , "netD": {
+        "net_type": "discriminator_unet" // "discriminator_patchgan" | "discriminator_unet"
+        , "in_nc": 3
+        , "base_nc": 64
+        , "n_layers": 3                  // only for "net_type":"discriminator_patchgan"
+        , "norm_type": "spectral"        // only for "net_type":"discriminator_patchgan"  | 'batch', 'instance', 'spectral', 'batchspectral', 'instancespectral'
+
+        , "init_type": "orthogonal"      // "orthogonal" | "normal" | "uniform" | "xavier_normal" | "xavier_uniform" | "kaiming_normal" | "kaiming_uniform"
+        , "init_bn_type": "uniform"      // "uniform" | "constant"
+        , "init_gain": 0.2
+    }
+
+    , "train": {
+      "G_lossfn_type": "l1"               // "l1" preferred | "l2sum" | "l2" | "ssim" | "charbonnier"
+      , "G_lossfn_weight": 1.0            // default
+
+      , "F_lossfn_type": "l1"  // "l1" | "l2"
+      , "F_lossfn_weight": 4
+      , "F_feature_layer": [2,7,16,25,34]        // 25 | [2,7,16,25,34]
+      , "F_weights": [0.1,0.1,1.0,1.0,1.0]       // 1.0 | [0.1,0.1,1.0,1.0,1.0]
+      , "F_use_input_norm": true
+      , "F_use_range_norm": false
+
+      , "gan_type": "gan"     // "gan" | "ragan" | "lsgan" | "wgan" | "softplusgan"
+      , "D_lossfn_weight": 0.1
+
+      , "E_decay": 0.999                  // Exponential Moving Average for netG: set 0 to disable; default setting 0.999
+      , "fp16": true
+
+      , "D_init_iters": 0
+
+      , "G_optimizer_type": "adam"
+      , "G_optimizer_lr": 1e-4  // learning rate
+      , "G_optimizer_wd": 0
+
+      , "D_optimizer_type": "adam"
+      , "D_optimizer_lr": 1e-4  // learning rate
+      , "D_optimizer_wd": 0
+
+      , "G_scheduler_type": "MultiStepLR" // "MultiStepLR" is enough
+      , "G_scheduler_milestones": [400000, 500000, 550000, 575000, 600000]
+      , "G_scheduler_gamma": 0.5
+      , "G_optimizer_reuse": true         //
+
+      , "D_scheduler_type": "MultiStepLR"
+      , "D_scheduler_milestones": [400000, 500000, 550000, 575000, 600000]
+      , "D_scheduler_gamma": 0.5
+      , "D_optimizer_reuse": true
+
+      , "G_param_strict": true
+      , "D_param_strict": true
+      , "E_param_strict": true
+
+      , "checkpoint_test": 50000           // for testing
+      , "checkpoint_save": 50000           // for saving model
+      , "checkpoint_print": 500           // for print
+    }
+  }
