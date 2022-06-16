@@ -4,6 +4,7 @@ import argparse
 import time
 import random
 import numpy as np
+import lpips
 from collections import OrderedDict
 import logging
 from torch.utils.data import DataLoader
@@ -166,22 +167,24 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                                           drop_last=True,
                                           pin_memory=True)
 
-        elif phase == 'test':
+        elif 'test' in phase:
             test_set = define_Dataset(dataset_opt)
             test_loader = DataLoader(test_set, batch_size=1,
                                      shuffle=False, num_workers=1,
                                      drop_last=False, pin_memory=True)
             set_info = {}
-            set_info['name'] = 'test'
+            set_info['name'] = dataset_opt["name"]
+            set_info['phase'] = phase
             set_info['loader'] = test_loader
             test_sets_info.append(set_info)
-        elif phase == 'save_test_out':
+        elif "save" in phase:
             save_test_set = define_Dataset(dataset_opt)
             save_test_loader = DataLoader(save_test_set, batch_size=1,
                                      shuffle=False, num_workers=1,
                                      drop_last=False, pin_memory=True)
             set_info = {}
-            set_info['name'] = 'save_test_out'
+            set_info['name'] = dataset_opt["name"]
+            set_info['phase'] = phase
             set_info['loader'] = save_test_loader
             test_sets_info.append(set_info)
         else:
@@ -201,6 +204,8 @@ def main(json_path='options/train_msrresnet_psnr.json'):
 
         logger.info('Number of GPUs is: ' + str(opt['num_gpu']))
         logger.info("Device count per node: " + str(torch.cuda.device_count()))
+        loss_fn = lpips.LPIPS(net='alex')
+        loss_fn.cuda()
 
     '''
     # ----------------------------------------
@@ -261,20 +266,32 @@ def main(json_path='options/train_msrresnet_psnr.json'):
             # 6) testing
             # -------------------------------
             if current_step % opt['train']['checkpoint_test'] == 0 and opt['rank'] == 0:
-
+                all_testsets_avg_psnr = 0.0
+                all_testsets_avg_lpips = 0.0
+                nb_testsets = 0
                 for t in test_sets_info:
                     test_loader = t['loader']
-                    test_name = t['name']
+                    testset_name = t['name']
+                    phase = t['phase']
                     avg_psnr = 0.0
+                    avg_lpips = 0.0
                     idx = 0
+                    if "save" not in phase:
+                        nb_testsets += 1
 
                     for test_data in test_loader:
-                        idx += 1
                         image_name_ext = os.path.basename(test_data['L_path'][0])
                         img_name, ext = os.path.splitext(image_name_ext)
 
                         model.feed_data(test_data)
                         model.test()
+
+                        # -----------------------
+                        # calculate LPIPS
+                        # -----------------------
+                        if "save" not in phase:
+                            curr_lpips_diff = loss_fn.forward(model.E, model.H)
+                            avg_lpips += curr_lpips_diff.item()
 
                         visuals = model.current_visuals()
                         E_img = util.tensor2uint(visuals['E'])
@@ -283,7 +300,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                         # -----------------------
                         # save estimated image E
                         # -----------------------
-                        if test_name == "save_test_out":
+                        if "save" in phase:
                             img_dir = os.path.join(opt['path']['images'], img_name)
                             util.mkdir(img_dir)
                             save_img_path = os.path.join(img_dir, '{:s}_{:d}.png'.format(img_name, current_step))
@@ -294,15 +311,34 @@ def main(json_path='options/train_msrresnet_psnr.json'):
                         # calculate PSNR
                         # -----------------------
                         current_psnr = util.calculate_psnr(E_img, H_img, border=border)
+                        # Safety measure for inf psnr
+                        if current_psnr > 300:
+                            continue
+
+                        idx += 1
                         #logger.info('{:->4d}--> {:>10s} | {:<4.2f}dB'.format(idx, image_name_ext, current_psnr))
                         avg_psnr += current_psnr
 
-                    avg_psnr = avg_psnr / idx
-
-                    if not test_name == "save_test_out":
+                    if idx > 0:
+                        avg_psnr = avg_psnr / idx
+                        avg_lpips = avg_lpips / idx
+                    if "save" not in phase:
                         # testing log
-                        logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB\n'.format(epoch, current_step, avg_psnr))
-                        tb_writer.add_scalar('PSNR/val/' + test_name, avg_psnr, current_step)
+                        logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB LPIPS: {:<.4f} {}\n'.format(epoch, current_step, avg_psnr, avg_lpips, testset_name))
+                        tb_writer.add_scalar('PSNR/val/' + testset_name, avg_psnr, current_step)
+                        tb_writer.add_scalar('LPIPS/val/' + testset_name, avg_lpips, current_step)
+
+                    all_testsets_avg_psnr += avg_psnr
+                    all_testsets_avg_lpips += avg_lpips
+
+                if nb_testsets > 0:
+                    all_testsets_avg_psnr = all_testsets_avg_psnr / nb_testsets
+                    all_testsets_avg_lpips = all_testsets_avg_lpips / nb_testsets
+                # testing log
+                logger.info('<epoch:{:3d}, iter:{:8,d}, Average PSNR : {:<.2f}dB LPIPS: {:<.4f}\n'.format(epoch, current_step, all_testsets_avg_psnr, all_testsets_avg_lpips))
+                tb_writer.add_scalar('PSNR/val/all_tests_avg', all_testsets_avg_psnr, current_step)
+                tb_writer.add_scalar('LPIPS/val/all_tests_avg', all_testsets_avg_lpips, current_step)
+
 
 if __name__ == '__main__':
     main()
