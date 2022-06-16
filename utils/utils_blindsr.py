@@ -409,8 +409,8 @@ def add_Poisson_noise(img):
     return img
 
 
-def add_JPEG_noise(img):
-    quality_factor = random.randint(30, 95)
+def add_JPEG_noise(img, qual_lower=30, qual_upper=95):
+    quality_factor = random.randint(qual_lower, qual_upper)
     img = cv2.cvtColor(util.single2uint(img), cv2.COLOR_RGB2BGR)
     result, encimg = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), quality_factor])
     img = cv2.imdecode(encimg, 1)
@@ -427,6 +427,78 @@ def random_crop(lq, hq, sf=4, lq_patchsize=64):
     rnd_h_H, rnd_w_H = int(rnd_h * sf), int(rnd_w * sf)
     hq = hq[rnd_h_H:rnd_h_H + lq_patchsize*sf, rnd_w_H:rnd_w_H + lq_patchsize*sf, :]
     return lq, hq
+
+
+def degradation_bsrgan_basic(img, sf=4, lq_patchsize=72, isp_model=None, lq_img=None):
+    """
+    This is the degradation model of BSRGAN from the paper
+    "Designing a Practical Degradation Model for Deep Blind Image Super-Resolution"
+    ----------
+    img: HXWXC, [0, 1], its size should be large than (lq_patchsizexsf)x(lq_patchsizexsf)
+    sf: scale factor
+    isp_model: camera ISP model
+
+    Returns
+    -------
+    img: low-quality patch, size: lq_patchsizeXlq_patchsizeXC, range: [0, 1]
+    hq: corresponding high-quality patch, size: (lq_patchsizexsf)X(lq_patchsizexsf)XC, range: [0, 1]
+    """
+    isp_prob, jpeg_prob, scale2_prob = 0.25, 0.9, 0.25
+    sf_ori = sf
+
+    h1, w1 = img.shape[:2]
+    img = img.copy()[:h1 - h1 % sf, :w1 - w1 % sf, ...]  # mod crop
+    h, w = img.shape[:2]
+
+    if h < lq_patchsize*sf or w < lq_patchsize*sf:
+        raise ValueError(f'img size ({h1}X{w1}) is too small!')
+
+    hq = img.copy()
+
+    if lq_img is None:
+        if sf == 4 and random.random() < scale2_prob:   # downsample1
+            if np.random.rand() < 0.5:
+                img = cv2.resize(img, (int(1/2*img.shape[1]), int(1/2*img.shape[0])), interpolation=random.choice([1,2,3]))
+            else:
+                img = util.imresize_np(img, 1/2, True)
+            img = np.clip(img, 0.0, 1.0)
+            sf = 2
+    else:
+        img = lq_img
+
+    shuffle_order = random.sample(range(2), 2)
+    # idx1, idx2 = shuffle_order.index(2), shuffle_order.index(3)
+    # if idx1 > idx2:  # keep downsample3 last
+    #     shuffle_order[idx1], shuffle_order[idx2] = shuffle_order[idx2], shuffle_order[idx1]
+
+    for i in shuffle_order:
+
+        # if i == 0:
+        #     img = add_blur(img, sf=sf)
+
+        if i == 0:
+            # add Gaussian noise
+            img = add_Gaussian_noise(img, noise_level1=2, noise_level2=25)
+
+        # elif i == 3:
+        #     # add JPEG noise
+        #     if random.random() < jpeg_prob:
+        #         img = add_JPEG_noise(img)
+
+        elif i == 1:
+            # add processed camera sensor noise
+            if random.random() < isp_prob and isp_model is not None:
+                with torch.no_grad():
+                    img, hq = isp_model.forward(img.copy(), hq)
+
+    # add final JPEG compression noise
+    img = add_JPEG_noise(img, qual_lower=10, qual_upper=70)
+
+    # random crop
+    img, hq = random_crop(img, hq, sf_ori, lq_patchsize)
+
+    return img, hq
+
 
 
 def degradation_bsrgan(img, sf=4, lq_patchsize=72, isp_model=None, lq_img=None):
@@ -447,7 +519,7 @@ def degradation_bsrgan(img, sf=4, lq_patchsize=72, isp_model=None, lq_img=None):
     sf_ori = sf
 
     h1, w1 = img.shape[:2]
-    img = img.copy()[:w1 - w1 % sf, :h1 - h1 % sf, ...]  # mod crop
+    img = img.copy()[:h1 - h1 % sf, :w1 - w1 % sf, ...]  # mod crop
     h, w = img.shape[:2]
 
     if h < lq_patchsize*sf or w < lq_patchsize*sf:
