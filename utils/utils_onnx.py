@@ -32,6 +32,7 @@ def main():
     parser.add_argument('--scale', type=int, default=1, help='scale factor: 1, 2, 3, 4, 8') # 1 for dn and jpeg car
     parser.add_argument('--noise', type=int, default=15, help='noise level: 15, 25, 50')
     parser.add_argument('--jpeg', type=int, default=40, help='scale factor: 10, 20, 30, 40')
+    parser.add_argument('--img_msk_size', type=int, default=200)
     parser.add_argument('--training_patch_size', type=int, default=128, help='patch size used in training SwinIR. '
                                        'Just used to differentiate two different settings in Table 2 of the paper. '
                                        'Images are NOT tested patch by patch.')
@@ -55,8 +56,7 @@ def main():
 
     # setup folder and path
     folder, save_dir, border, window_size = setup(args)
-    save_dir += "/rand"
-    onnx_out_file = os.path.join(save_dir, "v3_ckpt_org_stp2_300k_rand.onnx")
+    onnx_out_file = os.path.join(save_dir, "v3_x2_iter1_50000_G.onnx")
     os.makedirs(save_dir, exist_ok=False)
     # test_results = OrderedDict()
     # test_results['psnr'] = []
@@ -138,10 +138,14 @@ def main():
 #########################################
 
 def define_model(args):
-    model = SwinIR(upscale=args.scale, in_chans=3, img_size=200, window_size=8,
-                        img_range=1., depths=[6, 6, 6, 6, 6, 6, 6, 6, 6], embed_dim=240,
-                        num_heads=[8, 8, 8, 8, 8, 8, 8, 8, 8],
-                        mlp_ratio=2, upsampler='null', resi_connection='3conv')
+    upsampler='null'
+    if args.scale > 1:
+        upsampler = 'nearest+conv'
+    model = SwinIR(upscale=args.scale, in_chans=3, img_size=args.img_msk_size, window_size=8,
+                img_range=1., depths=[6, 6, 6, 6, 6, 6, 6, 6, 6], embed_dim=240,
+                num_heads=[8, 8, 8, 8, 8, 8, 8, 8, 8],
+                mlp_ratio=2, upsampler=upsampler, resi_connection='3conv')
+
     param_key_g = 'params_ema'
     pretrained_model = torch.load(args.model_path)
     model.load_state_dict(pretrained_model[param_key_g] if param_key_g in pretrained_model.keys() else pretrained_model, strict=True)
