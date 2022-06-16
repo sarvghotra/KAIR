@@ -320,6 +320,13 @@ def get_image_pair(args, path):
     return imgname, img_lq, img_gt
 
 
+def combine_img_rgba(ori_img, sr_img):
+    h, w, c = sr_img.shape
+    ori_img_scale = cv2.resize(ori_img, (w, h), Image.BICUBIC)
+    sr_img_rgba = np.concatenate([sr_img, ori_img_scale[:, :, 3:]], axis=2)
+    return sr_img_rgba
+
+
 def test(img_lq, model, args, window_size):
     if args.tile is None:
         # test the image as a whole
