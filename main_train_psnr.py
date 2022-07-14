@@ -170,7 +170,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
         elif 'test' in phase:
             test_set = define_Dataset(dataset_opt)
             test_loader = DataLoader(test_set, batch_size=1,
-                                     shuffle=False, num_workers=1,
+                                     shuffle=False, num_workers=8,
                                      drop_last=False, pin_memory=True)
             set_info = {}
             set_info['name'] = dataset_opt["name"]
@@ -180,7 +180,7 @@ def main(json_path='options/train_msrresnet_psnr.json'):
         elif "save" in phase:
             save_test_set = define_Dataset(dataset_opt)
             save_test_loader = DataLoader(save_test_set, batch_size=1,
-                                     shuffle=False, num_workers=1,
+                                     shuffle=False, num_workers=8,
                                      drop_last=False, pin_memory=True)
             set_info = {}
             set_info['name'] = dataset_opt["name"]

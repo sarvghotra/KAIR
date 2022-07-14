@@ -137,12 +137,12 @@ class DatasetSLBlindSR(data.Dataset):
                 if img_L is not None:
                     img_L = img_L[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
 
-        if self.degradation_type == 'bsrgan':
-            img_L, img_H = blindsr.degradation_bsrgan(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
-        elif self.degradation_type == 'bsrgan_plus':
-            img_L, img_H = blindsr.degradation_bsrgan_plus(img_H, self.sf, lq_img=img_L, shuffle_prob=self.shuffle_prob, use_sharp=self.use_sharp, lq_patchsize=self.lq_patchsize)
-        elif self.degradation_type == 'bsrgan_basic':
-            img_L, img_H = blindsr.degradation_bsrgan_basic(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
+            if self.degradation_type == 'bsrgan':
+                img_L, img_H = blindsr.degradation_bsrgan(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
+            elif self.degradation_type == 'bsrgan_plus':
+                img_L, img_H = blindsr.degradation_bsrgan_plus(img_H, self.sf, lq_img=img_L, shuffle_prob=self.shuffle_prob, use_sharp=self.use_sharp, lq_patchsize=self.lq_patchsize)
+            elif self.degradation_type == 'bsrgan_basic':
+                img_L, img_H = blindsr.degradation_bsrgan_basic(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
 
 
         # ------------------------------------
