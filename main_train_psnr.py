@@ -127,6 +127,9 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     seed = opt['train']['manual_seed']
     if seed is None:
         seed = random.randint(1, 10000)
+
+    if opt['rank'] == 0:
+        logger.info('Random seed: {}'.format(seed))
     print('Random seed: {}'.format(seed))
     random.seed(seed)
     np.random.seed(seed)
@@ -201,7 +204,9 @@ def main(json_path='options/train_msrresnet_psnr.json'):
     if opt['rank'] == 0:
         # logger.info(model.info_network())
         # logger.info(model.info_params())
-
+        logger.info('G Params number: {}'.format(sum(map(lambda x: x.numel(), model.netG.parameters()))) + '\n')
+        if hasattr(model, 'netD'):
+            logger.info('D Params number: {}'.format(sum(map(lambda x: x.numel(), model.netD.parameters()))) + '\n')
         logger.info('Number of GPUs is: ' + str(opt['num_gpu']))
         logger.info("Device count per node: " + str(torch.cuda.device_count()))
         loss_fn = lpips.LPIPS(net='alex')

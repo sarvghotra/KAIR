@@ -5,6 +5,7 @@ import random
 import numpy as np
 import torch
 import cv2
+from PIL import Image
 from torchvision.utils import make_grid
 from datetime import datetime
 # import torchvision.transforms as transforms
@@ -247,20 +248,38 @@ def imread_uint(path, n_channels=3, return_orig=False):
     if n_channels == 1:
         orig_img = cv2.imread(path, 0)  # cv2.IMREAD_GRAYSCALE
         img = np.expand_dims(orig_img, axis=2)  # HxWx1
+
     elif n_channels == 3:
-        orig_img = cv2.imread(path, cv2.IMREAD_UNCHANGED)  # BGR or G
         try:
-            if orig_img.ndim == 2:
-                img = cv2.cvtColor(orig_img, cv2.COLOR_GRAY2RGB)  # GGG
+            orig_img = Image.open(path)
+            channel_info = orig_img.getbands()
+
+            if len(channel_info) == 2:
+                # Greyscale image or image with more than 3 channels
+                img = orig_img.convert('RGB')
             else:
-                img = cv2.cvtColor(orig_img, cv2.COLOR_BGR2RGB)  # RGB
-        except AttributeError as e:
-            print("=========== \n", path, "\n =================")
+                if return_orig:
+                    orig_img = np.array(orig_img)
+                    img = orig_img.copy()
+                    if img.shape[2] > 3:
+                        img = img[:, :, :3]  # HxWx3(RGB)
+                    return img, orig_img
+
+                img = orig_img
+
+        except Exception as e:
+            print("=|=|=|=|=|=|=|==== \n", path, "\n ===|=|=|=|=|=|=|========")
             raise e
-    if return_orig:
-        return img, orig_img
-    else:
-        return img
+
+        img = np.array(img)  # HxWx3(RGB)
+        if img.shape[2] > 3:
+            img = img[:, :, :3]  # HxWx3(RGB)
+
+        if return_orig:
+            orig_img = np.array(orig_img)  # HxWx3(RGB)
+            return img, orig_img
+        else:
+            return img
 
 
 # --------------------------------------------
