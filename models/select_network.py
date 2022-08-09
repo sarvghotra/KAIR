@@ -201,6 +201,29 @@ def define_G(opt):
                    upsampler=opt_net['upsampler'],
                    resi_connection=opt_net['resi_connection'])
 
+    elif net_type == 'elsa_swinir':
+        from models.network_elsa_swinir import ELSASwinIR as net
+        netG = net(upscale=opt_net['upscale'],
+                   in_chans=opt_net['in_chans'],
+                   img_size=opt_net['img_size'],
+                   window_size=opt_net['window_size'],
+                   img_range=opt_net['img_range'],
+                   depths=opt_net['depths'],
+                   embed_dim=opt_net['embed_dim'],
+                   num_heads=opt_net['num_heads'],
+                   mlp_ratio=opt_net['mlp_ratio'],
+                   upsampler=opt_net['upsampler'],
+                   resi_connection=opt_net['resi_connection'],
+                   elsa_kernel=opt_net['elsa_kernel'],
+                   group_width=opt_net['group_width'],
+                   lam=opt_net['lam'],
+                   gamma=opt_net['gamma'])
+
+    elif net_type == 'segformer':
+        from models.segformer.models import build_segmentor
+        opt_net['norm_cfg'] = dict(type='SyncBN', requires_grad=True)
+        netG = build_segmentor(opt_net, train_cfg=opt_net['train_cfg'], test_cfg=opt_net['test_cfg'])
+
     # ----------------------------------------
     # others
     # ----------------------------------------

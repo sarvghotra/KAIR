@@ -12,7 +12,13 @@ import scipy.stats as ss
 from scipy.interpolate import interp2d
 from scipy.linalg import orth
 
+from PIL import Image
+# from .imresize import imresize
 
+import io
+import imageio
+import os.path
+import sys
 
 
 """
@@ -492,7 +498,7 @@ def degradation_bsrgan_basic(img, sf=4, lq_patchsize=72, isp_model=None, lq_img=
                     img, hq = isp_model.forward(img.copy(), hq)
 
     # add final JPEG compression noise
-    img = add_JPEG_noise(img, qual_lower=10, qual_upper=70)
+    img = add_JPEG_noise(img, qual_lower=30, qual_upper=95)
 
     # random crop
     img, hq = random_crop(img, hq, sf_ori, lq_patchsize)
@@ -681,6 +687,149 @@ def degradation_bsrgan_plus(img, sf=4, shuffle_prob=0.5, use_sharp=False, lq_pat
     img, hq = random_crop(img, hq, sf, lq_patchsize)
 
     return img, hq
+
+
+
+
+
+def compress_img(img):
+    if random.randint(1, 100) <= 90:
+        buf = io.BytesIO()
+        quality = random.randint(30, 100)
+        imageio.imwrite(buf, img, format='JPEG', quality=quality)
+        img = imageio.imread(buf.getvalue())
+    return img
+
+
+def blur_img( img):
+    blur_types = []
+    blur_types_arg = "Average:10+Box:10+Median:10+Gaussian:10"
+    types = blur_types_arg.strip().split('+')
+    for bt in types:
+        d = bt.split(':')
+        blur_types += [d[0]] * int(d[1])
+    blur_types += ['null'] * (100 - len(blur_types))
+    blur_types = ['null'] * 100
+
+    rand_val = random.randint(0, 99)
+    blur_type = blur_types[rand_val]
+    kernel_size = 3
+    if rand_val % 3 == 0:
+        kernel_size = 5
+    if blur_type == 'Average':
+        img = cv2.blur(img, (kernel_size, kernel_size))
+    elif blur_type == 'Bilateral':
+        img = cv2.bilateralFilter(img, 9, 75, 75)
+    elif blur_type == 'Box':
+        img = cv2.boxFilter(img, -1, (kernel_size, kernel_size))
+    elif blur_type == 'Gaussian':
+        img = cv2.GaussianBlur(img, (kernel_size, kernel_size), 0)
+    elif blur_type == 'Median':
+        img = cv2.medianBlur(img, kernel_size)
+    if len(img.shape) == 2:
+        img = np.expand_dims(img, axis=2)
+    return img
+
+
+# def motion_blur( img):
+#     if motion_blur_range and random.randint(0, 100) <= motion_blur_range[2]:
+#         size = random.randint(motion_blur_range[0], motion_blur_range[1])
+#         kernel_motion_blur = np.zeros((size, size))
+#         kernel_motion_blur[int((size-1)/2), :] = np.ones(size)
+#         kernel_motion_blur = kernel_motion_blur / size
+#         # applying the kernel to the input image
+#         img = cv2.filter2D(img, -1, kernel_motion_blur)
+#     if len(img.shape) == 2:
+#         img = np.expand_dims(img, axis=2)
+#     return img
+
+
+def scale_img( img):
+    scale_types = []
+    scale_types_config = "2:30+3:30+4:30"
+    types = scale_types_config.strip().split('+')
+    for st in types:
+        d = st.split(':')
+        scale_types += [int(d[0])] * int(d[1])
+    scale_types += [1] * (100 - len(scale_types))
+
+    rand_val = random.randint(0, 99)
+    scale = scale_types[rand_val]
+    if scale == 1:
+        return img
+    h, w = img.shape[:2]
+    interpolation_type = random.choice([1, 2, 3])
+    downscale_img = cv2.resize(img, (w // scale, h // scale), interpolation=interpolation_type)
+    # downscale_img = imresize(img, output_shape=(h // scale, w // scale))
+    img = cv2.resize(img, (w, h), interpolation=interpolation_type)
+    #img = imresize(downscale_img, output_shape=(h, w))
+    return img
+
+
+# def brighter_img( img):
+#     if brighter_range and random.randint(0, 100) <= brighter_range[2]:
+#         factor = (random.randint(brighter_range[0], brighter_range[1])) / 100.
+#         img = Image.fromarray(img)
+#         enhancer = ImageEnhance.Brightness(img)
+#         img = enhancer.enhance(factor)
+#         img = np.array(img)
+#     return img
+
+
+def degradation_v123(img, sf=4, lq_patchsize=72, isp_model=None, lq_img=None):
+    """
+    This is the degradation model of BSRGAN from the paper
+    "Designing a Practical Degradation Model for Deep Blind Image Super-Resolution"
+    ----------
+    img: HXWXC, [0, 1], its size should be large than (lq_patchsizexsf)x(lq_patchsizexsf)
+    sf: scale factor
+    isp_model: camera ISP model
+
+    Returns
+    -------
+    img: low-quality patch, size: lq_patchsizeXlq_patchsizeXC, range: [0, 1]
+    hq: corresponding high-quality patch, size: (lq_patchsizexsf)X(lq_patchsizexsf)XC, range: [0, 1]
+    """
+    # isp_prob, jpeg_prob, scale2_prob = 0.25, 0.9, 0.25
+    # sf_ori = sf
+
+    h1, w1 = img.shape[:2]
+    img = img.copy()[:h1 - h1 % sf, :w1 - w1 % sf, ...]  # mod crop
+    h, w = img.shape[:2]
+
+    if h < lq_patchsize*sf or w < lq_patchsize*sf:
+        raise ValueError(f'img size ({h1}X{w1}) is too small!')
+
+    hq = img.copy()
+
+    if lq_img is not None:
+        img = lq_img
+
+    # if need_degra:
+    aug_types = ['blur', 'scale', 'jpeg']
+    random.shuffle(aug_types)
+
+    for aug_type in aug_types:
+        if aug_type == 'blur':
+            img = blur_img(img)
+        elif aug_type == 'scale':
+            img = scale_img(img)
+
+    img = add_JPEG_noise(img)
+
+    # lr = blur_img(lr)
+    # lr = scale_img(lr)
+    # lr = compress_img(lr)
+    # # lr = motion_blur(lr)
+    # # lr = brighter_img(lr)
+
+    # I don't know if the following is necessary
+    # img = imresize(img, output_shape=(rescale_h * self.scale, rescale_w * self.scale))
+
+    return img, hq
+
+
+
 
 
 

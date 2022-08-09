@@ -50,11 +50,17 @@ def define_Dataset(dataset_opt):
     elif dataset_type == 'blindsrlrhr':
         from data.dataset_blindsr import DatasetBlindSRLRHR as D
 
+    elif dataset_type in ["slblindsr_new"]:
+        from data.dataset_blindsr import TempDatasetSLBlindSR as D
+
     elif dataset_type in ['bsrnet', 'bsrgan', 'blindsr']:
         from data.dataset_blindsr import DatasetBlindSR as D
 
-    elif dataset_type in ["debug"]:
-        from data.dataset_blindsr import DebugDataset as D
+    elif dataset_type in ["debug_slblindsr"]:
+        from data.debug import DatasetSLBlindSR as D
+
+    elif dataset_type in ["debug_blindsr"]:
+        from data.debug import DatasetBlindSR as D
 
     # -------------------------------------------------
     # JPEG compression artifact reduction (deblocking)

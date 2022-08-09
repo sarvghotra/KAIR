@@ -29,8 +29,9 @@ class DatasetSLBlindSR(data.Dataset):
         # merging all lists of filepaths into one list
         self.paths_H = []
         self.paths_L = []
+        self.degradation_types = []
         i = 0
-        for data_name, d, data_L, d_size in zip(opt['dataroot_H'], train_img_files_hr, opt['dataroot_L'], opt['data_sizes']):
+        for data_name, d, data_L, d_size, deg_type in zip(opt['dataroot_H'], train_img_files_hr, opt['dataroot_L'], opt['data_sizes'], opt['degradation_type']):
             # TODO
             # FIXME: Move it to config
             # if "FFHQ" in data_name:
@@ -42,18 +43,28 @@ class DatasetSLBlindSR(data.Dataset):
             #     d = d[:4000]
             max_imgs = d_size
             if d_size is None:
+                # take all the images in the dataset
                 max_imgs = len(d)
+            else:
+                random.Random(13713).shuffle(d)
 
             if data_L is not None:
                 assert len(d) == len(train_img_files_L[i]), "LR and HR data size must be same"
                 d = d[:max_imgs]
-                self.paths_L.extend(train_img_files_L[i][:max_imgs])
+
+                paths_L = train_img_files_L[i] # [:max_imgs]
+                if d_size is not None:
+                    random.Random(13713).shuffle(paths_L)
+
+                paths_L = paths_L[:max_imgs]
+                self.paths_L.extend(paths_L)
                 i += 1
             else:
                 d = d[:max_imgs]
                 self.paths_L.extend([None] * len(d))
 
             self.paths_H.extend(d)
+            self.degradation_types.extend([deg_type] * len(d))
 
         print(len(self.paths_H))
 
@@ -67,6 +78,7 @@ class DatasetSLBlindSR(data.Dataset):
     def __getitem__(self, index):
         H_path = self.paths_H[index]
         L_path = self.paths_L[index]
+        degradation_type = self.degradation_types[index]
         # ------------------------------------
         # get H image
         # ------------------------------------
@@ -75,7 +87,13 @@ class DatasetSLBlindSR(data.Dataset):
         H, W, C = img_H.shape
 
         if H < self.patch_size or W < self.patch_size:
-            img_H = np.tile(np.random.randint(0, 256, size=[1, 1, self.n_channels], dtype=np.uint8), (self.patch_size, self.patch_size, 1))
+            if self.opt['phase'] == 'train':
+                print("short image:", H_path)
+                index = random.randint(0, len(self.paths_H) - 1)
+                return self.__getitem__(index)
+            else:
+                raise ValueError("short image:", H_path)
+            # img_H = np.tile(np.random.randint(0, 256, size=[1, 1, self.n_channels], dtype=np.uint8), (self.patch_size, self.patch_size, 1))
 
         # ------------------------------------
         # if train, get L/H patch pair
@@ -94,6 +112,11 @@ class DatasetSLBlindSR(data.Dataset):
                 # get L image
                 # ------------------------------------
                 img_L = util.imread_uint(L_path, self.n_channels)
+                if img_L.shape[0] < self.patch_size or img_L.shape[1] < self.patch_size:
+                    print("short image:", img_L)
+                    index = random.randint(0, len(self.paths_H) - 1)
+                    return self.__getitem__(index)
+
                 img_L = img_L[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
 
 
@@ -114,11 +137,11 @@ class DatasetSLBlindSR(data.Dataset):
             else:
                 img_L = None
 
-            if self.degradation_type == 'bsrgan':
+            if degradation_type == 'bsrgan':
                 img_L, img_H = blindsr.degradation_bsrgan(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
-            elif self.degradation_type == 'bsrgan_plus':
+            elif degradation_type == 'bsrgan_plus':
                 img_L, img_H = blindsr.degradation_bsrgan_plus(img_H, self.sf, lq_img=img_L, shuffle_prob=self.shuffle_prob, use_sharp=self.use_sharp, lq_patchsize=self.lq_patchsize)
-            elif self.degradation_type == 'bsrgan_basic':
+            elif degradation_type == 'bsrgan_basic':
                 img_L, img_H = blindsr.degradation_bsrgan_basic(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
         else:
             img_H = util.uint2single(img_H)
@@ -137,11 +160,11 @@ class DatasetSLBlindSR(data.Dataset):
                 if img_L is not None:
                     img_L = img_L[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
 
-            if self.degradation_type == 'bsrgan':
+            if degradation_type == 'bsrgan':
                 img_L, img_H = blindsr.degradation_bsrgan(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
-            elif self.degradation_type == 'bsrgan_plus':
+            elif degradation_type == 'bsrgan_plus':
                 img_L, img_H = blindsr.degradation_bsrgan_plus(img_H, self.sf, lq_img=img_L, shuffle_prob=self.shuffle_prob, use_sharp=self.use_sharp, lq_patchsize=self.lq_patchsize)
-            elif self.degradation_type == 'bsrgan_basic':
+            elif degradation_type == 'bsrgan_basic':
                 img_L, img_H = blindsr.degradation_bsrgan_basic(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
 
 
@@ -152,9 +175,14 @@ class DatasetSLBlindSR(data.Dataset):
 
         # img_H_out = util.tensor2uint(img_H)
         # img_L_out = util.tensor2uint(img_L)
-        # util.imsave(img_H_out, "/tmp/imgs/" + img_name + "_h.png")
+        # dataset_dir = os.path.dirname(H_path).split('/')[-1]
+        # save_dir = "/tmp/imgs/" + self.opt['phase'] + '/' + dataset_dir + '/'
+        # if not os.path.exists(save_dir):
+        #     os.makedirs(save_dir)
+
+        # util.imsave(img_H_out, save_dir + img_name + "_h.png")
         # #img_name, ext = os.path.splitext(os.path.basename(L_path))
-        # util.imsave(img_L_out, "/tmp/imgs/" + img_name + "_l.png")
+        # util.imsave(img_L_out, save_dir + img_name + "_l.png")
         # print("saved")
 
         if L_path is None:
@@ -218,7 +246,15 @@ class DatasetBlindSR(data.Dataset):
         H, W, C = img_H.shape
 
         if H < self.patch_size or W < self.patch_size:
-            img_H = np.tile(np.random.randint(0, 256, size=[1, 1, self.n_channels], dtype=np.uint8), (self.patch_size, self.patch_size, 1))
+            if self.opt['phase'] == 'train':
+                print("short image:", H_path)
+                index = random.randint(0, len(self.paths_H) - 1)
+                return self.__getitem__(index)
+            else:
+                raise ValueError("short image:", H_path)
+
+        # if H < self.patch_size or W < self.patch_size:
+        #     img_H = np.tile(np.random.randint(0, 256, size=[1, 1, self.n_channels], dtype=np.uint8), (self.patch_size, self.patch_size, 1))
 
         # ------------------------------------
         # if train, get L/H patch pair
@@ -429,3 +465,355 @@ class DatasetBlindSRLRHR(data.Dataset):
 
     def __len__(self):
         return self.cum_data_sizes[-1]
+
+
+
+
+#############################################
+############### Tem Code ####################
+#############################################
+
+class TempDatasetSLBlindSR(data.Dataset):
+    '''
+    # -----------------------------------------
+    # dataset for BSRGAN
+    # -----------------------------------------
+    '''
+    def __init__(self, opt):
+        super(TempDatasetSLBlindSR, self).__init__()
+        self.opt = opt
+        self.n_channels = opt['n_channels'] if opt['n_channels'] else 3
+        self.sf = opt['scale'] if opt['scale'] else 4
+        self.shuffle_prob = opt['shuffle_prob'] if opt['shuffle_prob'] else 0.1
+        self.use_sharp = opt['use_sharp'] if opt['use_sharp'] else False
+        self.degradation_type = opt['degradation_type'] if opt['degradation_type'] else 'bsrgan'
+        self.lq_patchsize = self.opt['lq_patchsize'] if self.opt['lq_patchsize'] else 64
+        self.patch_size = self.opt['H_size'] if self.opt['H_size'] else self.lq_patchsize*self.sf
+
+        train_img_files_hr = util.read_dirs(opt['dataroot_H'], opt['cache_dir'])
+        non_empty_dataroot_L = [x for x in opt['dataroot_L'] if x is not None]
+        train_img_files_L = util.read_dirs(non_empty_dataroot_L, opt['cache_dir'])
+        # merging all lists of filepaths into one list
+        self.paths_H = []
+        self.paths_L = []
+        i = 0
+        for data_name, d, data_L, d_size in zip(opt['dataroot_H'], train_img_files_hr, opt['dataroot_L'], opt['data_sizes']):
+            # TODO
+            # FIXME: Move it to config
+            # if "FFHQ" in data_name:
+            #     d = d[:100]
+            # elif "SCUT-CTW1500" in data_name:
+            #     d = d[:100]
+            # elif "Crawl" in data_name:
+            #     random.shuffle(d)
+            #     d = d[:4000]
+            max_imgs = d_size
+            if d_size is None:
+                # take all the images in the dataset
+                max_imgs = len(d)
+            else:
+                random.Random(13713).shuffle(d)
+
+            if data_L is not None:
+                assert len(d) == len(train_img_files_L[i]), "LR and HR data size must be same"
+                d = d[:max_imgs]
+
+                paths_L = train_img_files_L[i] # [:max_imgs]
+                if d_size is not None:
+                    random.Random(13713).shuffle(paths_L)
+
+                paths_L = paths_L[:max_imgs]
+                self.paths_L.extend(paths_L)
+                i += 1
+            else:
+                d = d[:max_imgs]
+                self.paths_L.extend([None] * len(d))
+
+            self.paths_H.extend(d)
+
+        print(len(self.paths_H))
+
+#        for n, v in enumerate(self.paths_H):
+#            if 'face' in v:
+#                del self.paths_H[n]
+#        time.sleep(1)
+        assert self.paths_H, 'Error: H path is empty.'
+        assert len(self.paths_H) == len(self.paths_L), 'Error: LR and HR have different sizes'
+
+    def __getitem__(self, index):
+        H_path = self.paths_H[index]
+        L_path = self.paths_L[index]
+        # ------------------------------------
+        # get H image
+        # ------------------------------------
+        img_H = util.imread_uint(H_path, self.n_channels)
+        img_name, ext = os.path.splitext(os.path.basename(H_path))
+        H, W, C = img_H.shape
+
+        if H < self.patch_size or W < self.patch_size:
+            img_H = np.tile(np.random.randint(0, 256, size=[1, 1, self.n_channels], dtype=np.uint8), (self.patch_size, self.patch_size, 1))
+
+        # ------------------------------------
+        # if train, get L/H patch pair
+        # ------------------------------------
+        if self.opt['phase'] == 'train':
+
+            H, W, C = img_H.shape
+
+            rnd_h_H = random.randint(0, max(0, H - self.patch_size))
+            rnd_w_H = random.randint(0, max(0, W - self.patch_size))
+            img_H = img_H[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
+
+
+            if L_path is not None:
+                # ------------------------------------
+                # get L image
+                # ------------------------------------
+                img_L = util.imread_uint(L_path, self.n_channels)
+                img_L = img_L[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
+
+
+            if 'face' in img_name:
+                mode = random.choice([0, 4])
+                img_H = util.augment_img(img_H, mode=mode)
+                if L_path is not None:
+                    img_L = util.augment_img(img_L, mode=mode)
+            else:
+                mode = random.randint(0, 7)
+                img_H = util.augment_img(img_H, mode=mode)
+                if L_path is not None:
+                    img_L = util.augment_img(img_L, mode=mode)
+
+            img_H = util.uint2single(img_H)
+            if L_path is not None:
+                img_L = util.uint2single(img_L)
+            else:
+                img_L = None
+
+            if self.degradation_type == 'v123_ppl':
+                img_L, img_H = blindsr.degradation_v123(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
+
+        else:
+            img_H = util.uint2single(img_H)
+            if L_path is not None:
+                img_L = util.imread_uint(L_path, self.n_channels)
+                img_L = util.uint2single(img_L)
+            else:
+                img_L = None
+
+            if "sice" in self.opt['name']:
+                H, W, C = img_H.shape
+                rnd_h_H = random.randint(0, max(0, H - self.patch_size))
+                rnd_w_H = random.randint(0, max(0, W - self.patch_size))
+                img_H = img_H[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
+
+                if img_L is not None:
+                    img_L = img_L[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
+
+            if self.degradation_type == 'v123_ppl':
+                img_L, img_H = blindsr.degradation_v123(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
+
+
+        # ------------------------------------
+        # L/H pairs, HWC to CHW, numpy to tensor
+        # ------------------------------------
+        img_H, img_L = util.single2tensor3(img_H), util.single2tensor3(img_L)
+
+        # img_H_out = util.tensor2uint(img_H)
+        # img_L_out = util.tensor2uint(img_L)
+        # dataset_dir = os.path.dirname(H_path).split('/')[-1]
+        # save_dir = "/tmp/imgs/" + dataset_dir + '/'
+        # if not os.path.exists(save_dir):
+        #     os.makedirs(save_dir)
+
+        # util.imsave(img_H_out, save_dir + img_name + "_h.png")
+        # #img_name, ext = os.path.splitext(os.path.basename(L_path))
+        # util.imsave(img_L_out, save_dir + img_name + "_l.png")
+        # print("saved")
+
+        if L_path is None:
+            L_path = H_path
+
+        return {'L': img_L, 'H': img_H, 'L_path': L_path, 'H_path': H_path}
+
+    def __len__(self):
+        return len(self.paths_H)
+
+
+
+
+class DebugDataset(data.Dataset):
+    '''
+    # -----------------------------------------
+    # dataset for BSRGAN
+    # -----------------------------------------
+    '''
+    def __init__(self, opt):
+        super(DebugDataset, self).__init__()
+        self.opt = opt
+        self.n_channels = opt['n_channels'] if opt['n_channels'] else 3
+        self.sf = opt['scale'] if opt['scale'] else 4
+        self.shuffle_prob = opt['shuffle_prob'] if opt['shuffle_prob'] else 0.1
+        self.use_sharp = opt['use_sharp'] if opt['use_sharp'] else False
+        self.degradation_type = opt['degradation_type'] if opt['degradation_type'] else 'bsrgan'
+        self.lq_patchsize = self.opt['lq_patchsize'] if self.opt['lq_patchsize'] else 64
+        self.patch_size = self.opt['H_size'] if self.opt['H_size'] else self.lq_patchsize*self.sf
+
+        train_img_files_hr = util.read_dirs(opt['dataroot_H'], opt['cache_dir'])
+        non_empty_dataroot_L = [x for x in opt['dataroot_L'] if x is not None]
+        train_img_files_L = util.read_dirs(non_empty_dataroot_L, opt['cache_dir'])
+        # merging all lists of filepaths into one list
+        self.paths_H = []
+        self.paths_L = []
+        self.degradation_types = []
+        i = 0
+        for data_name, d, data_L, d_size, deg_type in zip(opt['dataroot_H'], train_img_files_hr, opt['dataroot_L'], opt['data_sizes'], opt['degradation_type']):
+            # TODO
+            # FIXME: Move it to config
+            # if "FFHQ" in data_name:
+            #     d = d[:100]
+            # elif "SCUT-CTW1500" in data_name:
+            #     d = d[:100]
+            # elif "Crawl" in data_name:
+            #     random.shuffle(d)
+            #     d = d[:4000]
+            max_imgs = d_size
+            if d_size is None:
+                # take all the images in the dataset
+                max_imgs = len(d)
+            # else:
+            #     random.Random(13713).shuffle(d)
+
+            if data_L is not None:
+                assert len(d) == len(train_img_files_L[i]), "LR and HR data size must be same"
+                d = d[:max_imgs]
+
+                paths_L = train_img_files_L[i] # [:max_imgs]
+                # if d_size is not None:
+                #     random.Random(13713).shuffle(paths_L)
+
+                paths_L = paths_L[:max_imgs]
+                self.paths_L.extend(paths_L)
+                i += 1
+            else:
+                d = d[:max_imgs]
+                self.paths_L.extend([None] * len(d))
+
+            self.paths_H.extend(d)
+            self.degradation_types.extend([deg_type] * len(d))
+
+        print(len(self.paths_H))
+
+#        for n, v in enumerate(self.paths_H):
+#            if 'face' in v:
+#                del self.paths_H[n]
+#        time.sleep(1)
+        assert self.paths_H, 'Error: H path is empty.'
+        assert len(self.paths_H) == len(self.paths_L), 'Error: LR and HR have different sizes'
+
+    def __getitem__(self, index):
+        H_path = self.paths_H[index]
+        L_path = self.paths_L[index]
+        degradation_type = self.degradation_types[index]
+        # ------------------------------------
+        # get H image
+        # ------------------------------------
+        img_H = util.imread_uint(H_path, self.n_channels)
+        img_name, ext = os.path.splitext(os.path.basename(H_path))
+        H, W, C = img_H.shape
+
+        if H < self.patch_size or W < self.patch_size:
+            img_H = np.tile(np.random.randint(0, 256, size=[1, 1, self.n_channels], dtype=np.uint8), (self.patch_size, self.patch_size, 1))
+
+        # ------------------------------------
+        # if train, get L/H patch pair
+        # ------------------------------------
+        if self.opt['phase'] == 'train':
+
+            H, W, C = img_H.shape
+
+            rnd_h_H = random.randint(0, max(0, H - self.patch_size))
+            rnd_w_H = random.randint(0, max(0, W - self.patch_size))
+            img_H = img_H[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
+
+
+            if L_path is not None:
+                # ------------------------------------
+                # get L image
+                # ------------------------------------
+                img_L = util.imread_uint(L_path, self.n_channels)
+                img_L = img_L[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
+
+
+            if 'face' in img_name:
+                mode = random.choice([0, 4])
+                img_H = util.augment_img(img_H, mode=mode)
+                if L_path is not None:
+                    img_L = util.augment_img(img_L, mode=mode)
+            else:
+                mode = random.randint(0, 7)
+                img_H = util.augment_img(img_H, mode=mode)
+                if L_path is not None:
+                    img_L = util.augment_img(img_L, mode=mode)
+
+            img_H = util.uint2single(img_H)
+            if L_path is not None:
+                img_L = util.uint2single(img_L)
+            else:
+                img_L = None
+
+            if degradation_type == 'bsrgan':
+                img_L, img_H = blindsr.degradation_bsrgan(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
+            elif degradation_type == 'bsrgan_plus':
+                img_L, img_H = blindsr.degradation_bsrgan_plus(img_H, self.sf, lq_img=img_L, shuffle_prob=self.shuffle_prob, use_sharp=self.use_sharp, lq_patchsize=self.lq_patchsize)
+            elif degradation_type == 'bsrgan_basic':
+                img_L, img_H = blindsr.degradation_bsrgan_basic(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
+        else:
+            img_H = util.uint2single(img_H)
+            if L_path is not None:
+                img_L = util.imread_uint(L_path, self.n_channels)
+                img_L = util.uint2single(img_L)
+            else:
+                img_L = None
+
+            if "sice" in self.opt['name']:
+                H, W, C = img_H.shape
+                rnd_h_H = random.randint(0, max(0, H - self.patch_size))
+                rnd_w_H = random.randint(0, max(0, W - self.patch_size))
+                img_H = img_H[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
+
+                if img_L is not None:
+                    img_L = img_L[rnd_h_H:rnd_h_H + self.patch_size, rnd_w_H:rnd_w_H + self.patch_size, :]
+
+            if degradation_type == 'bsrgan':
+                img_L, img_H = blindsr.degradation_bsrgan(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
+            elif degradation_type == 'bsrgan_plus':
+                img_L, img_H = blindsr.degradation_bsrgan_plus(img_H, self.sf, lq_img=img_L, shuffle_prob=self.shuffle_prob, use_sharp=self.use_sharp, lq_patchsize=self.lq_patchsize)
+            elif degradation_type == 'bsrgan_basic':
+                img_L, img_H = blindsr.degradation_bsrgan_basic(img_H, self.sf, lq_img=img_L, lq_patchsize=self.lq_patchsize, isp_model=None)
+
+
+        # ------------------------------------
+        # L/H pairs, HWC to CHW, numpy to tensor
+        # ------------------------------------
+        img_H, img_L = util.single2tensor3(img_H), util.single2tensor3(img_L)
+
+        # img_H_out = util.tensor2uint(img_H)
+        # img_L_out = util.tensor2uint(img_L)
+        # dataset_dir = os.path.dirname(H_path).split('/')[-1]
+        # save_dir = "/tmp/imgs/" + self.opt['phase'] + '/' + dataset_dir + '/'
+        # if not os.path.exists(save_dir):
+        #     os.makedirs(save_dir)
+
+        # util.imsave(img_H_out, save_dir + img_name + "_h.png")
+        # #img_name, ext = os.path.splitext(os.path.basename(L_path))
+        # util.imsave(img_L_out, save_dir + img_name + "_l.png")
+        # print("saved")
+
+        if L_path is None:
+            L_path = H_path
+
+        return {'L': img_L, 'H': img_H, 'L_path': L_path, 'H_path': H_path}
+
+    def __len__(self):
+        return len(self.paths_H)
